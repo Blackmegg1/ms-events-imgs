@@ -1,4 +1,4 @@
-import services from '@/services/projects';
+import services from '@/services/project';
 import { Button, DatePicker, Form, Input, Modal, message } from 'antd';
 import dayjs from 'dayjs';
 import React, { PropsWithChildren, useEffect, useState } from 'react';

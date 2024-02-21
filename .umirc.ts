@@ -20,11 +20,6 @@ export default defineConfig({
       component: './Home',
     },
     {
-      name: '权限演示',
-      path: '/access',
-      component: './Access',
-    },
-    {
       name: 'CRUD 示例',
       path: '/table',
       component: './Table',
@@ -33,6 +28,11 @@ export default defineConfig({
       name: '项目管理',
       path: '/project',
       component: './Project',
+    },
+    {
+      name: '事件管理',
+      path: '/event',
+      component: './Event',
     },
   ],
   npmClient: 'pnpm',

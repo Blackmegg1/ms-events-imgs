@@ -1,10 +1,7 @@
 import { request } from '@umijs/max';
 
-export async function getProjectList(params: {
-  // query
-  /** current */
+export function getProjectList(params: {
   current?: number;
-  /** pageSize */
   pageSize?: number;
 }) {
   return request('/api/project/list', {
@@ -30,5 +27,11 @@ export function editProject(
   return request(`/api/project/${id}`, {
     method: 'put',
     data,
+  });
+}
+
+export function getProjectDist() {
+  return request('/api/project/all', {
+    method: 'get',
   });
 }

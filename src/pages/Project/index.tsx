@@ -1,4 +1,4 @@
-import services from '@/services/projects';
+import services from '@/services/project';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { Button, Space } from 'antd';
 import dayjs from 'dayjs';

@@ -1,4 +1,4 @@
-import services from '@/services/projects';
+import services from '@/services/project';
 import { Button, DatePicker, Form, Input, Modal, message } from 'antd';
 import dayjs from 'dayjs';
 import React, { PropsWithChildren, useState } from 'react';
@@ -67,11 +67,8 @@ const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
         >
           <Input />
         </Form.Item>
-        <Form.Item
-          name="initTime"
-          label="更新时间"
-        >
-          <DatePicker format="YYYY-MM-DD HH:mm:ss" disabled/>
+        <Form.Item name="initTime" label="更新时间">
+          <DatePicker format="YYYY-MM-DD HH:mm:ss" disabled />
         </Form.Item>
       </Form>
     </Modal>
