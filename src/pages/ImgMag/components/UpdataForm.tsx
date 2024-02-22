@@ -1,20 +1,17 @@
 import imgmagServices from '@/services/imgmag';
-import { getBlob } from '@/utils';
-import type { GetProp, UploadProps } from 'antd';
+import { base64StringToBlob, getBlob } from '@/utils';
 import { Form, Input, InputNumber, Modal, Select, Upload, message } from 'antd';
 import React, { PropsWithChildren, useEffect, useState } from 'react';
 
-const { addImg } = imgmagServices.ImgmagController;
-
-type FileType = Parameters<GetProp<UploadProps, 'beforeUpload'>>[0];
+const { updateImg } = imgmagServices.ImgmagController;
 
 interface CreateFormProps {
   modalVisible: boolean;
   onCancel: () => void;
   onOk: () => void;
   projectDist: any;
+  currentData: any;
 }
-
 
 const normFile = (e: any) => {
   console.log('Upload event:', e);
@@ -30,13 +27,14 @@ const uploadButton = (
   </button>
 );
 
-const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
-  const { modalVisible, onCancel, onOk, projectDist } = props;
+const UpdateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
+  const { modalVisible, onCancel, onOk, projectDist, currentData } = props;
   const [form] = Form.useForm();
   const [options, setOptions] = useState([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
   const [previewTitle, setPreviewTitle] = useState('');
+  const [fileList, setFileList] = useState([{}]);
 
   useEffect(() => {
     if (projectDist !== null) {
@@ -47,8 +45,33 @@ const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
         };
       });
       setOptions(tmp);
+      console.log(currentData);
+      if (currentData.img_blob) {
+        const imgBlob = base64StringToBlob(currentData.img_blob);
+        const imgUrl = URL.createObjectURL(imgBlob);
+        // 展示
+        setFileList([
+          {
+            uid: '1',
+            name: currentData.img_name,
+            status: 'done',
+            thumbUrl: imgUrl,
+            originFileObj: imgBlob,
+          },
+        ]);
+        // 写入表单
+        form.setFieldValue('img', [
+          {
+            uid: '1',
+            name: currentData.img_name,
+            status: 'done',
+            thumbUrl: imgUrl,
+            originFileObj: imgBlob,
+          },
+        ]);
+      }
     }
-  }, [projectDist]);
+  }, [projectDist, currentData]);
 
   const handleCancel = () => setPreviewOpen(false);
 
@@ -76,11 +99,11 @@ const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
         }
       });
       const imgBlob = await getBlob(values.img[0].originFileObj);
-
       formData.append('img_blob', imgBlob);
       formData.append('img_name', values.img[0].name);
       try {
-        addImg(formData).then((res) => {
+        updateImg(formData).then((res) => {
+          console.log(res);
           form.resetFields();
           onOk();
         });
@@ -101,7 +124,7 @@ const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
       onCancel={() => onCancel()}
       onOk={handleSubmit}
     >
-      <Form form={form} layout="horizontal">
+      <Form form={form} layout="horizontal" initialValues={currentData}>
         <Form.Item
           label="所属项目"
           name="project_id"
@@ -112,7 +135,7 @@ const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
             },
           ]}
         >
-          <Select options={options} />
+          <Select options={options} disabled />
         </Form.Item>
         <Form.Item
           label="底图名称"
@@ -124,7 +147,7 @@ const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
             },
           ]}
         >
-          <Input />
+          <Input disabled />
         </Form.Item>
         <Form.Item
           label="法向轴"
@@ -184,6 +207,7 @@ const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
             listType="picture-card"
             onPreview={handlePreview}
             maxCount={1}
+            defaultFileList={fileList}
             beforeUpload={(file) => {
               const isPNG = file.type === 'image/png';
               if (!isPNG) {
@@ -209,4 +233,4 @@ const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
   );
 };
 
-export default CreateForm;
+export default UpdateForm;

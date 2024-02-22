@@ -1,14 +1,15 @@
 import imgmagServices from '@/services/imgmag';
 import projectServices from '@/services/project';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
-import { Button, Modal } from 'antd';
+import { Button, Modal, Popconfirm, Space } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import CreateForm from './components/CreateForm';
+import UpdateForm from './components/UpdataForm';
 
 const { getProjectDist } = projectServices.ProjectController;
-const { getImgList } = imgmagServices.ImgmagController;
+const { getImgList, deleteImg } = imgmagServices.ImgmagController;
 
-const handlePreviewImage = (base64Img) => {
+const handlePreviewImage = (base64Img: string) => {
   // 显示 Modal
   Modal.info({
     icon: null,
@@ -31,6 +32,8 @@ const handlePreviewImage = (base64Img) => {
 const ImgMag: React.FC = () => {
   const [projectDist, setProjectDist] = useState({});
   const [createModalVisible, handleCreateVisible] = useState(false);
+  const [updateModalVisible, handleUpdateVisible] = useState(false);
+  const [currentData, setCurrentData] = useState({});
   const tableRef = useRef();
   const columns = [
     {
@@ -118,12 +121,41 @@ const ImgMag: React.FC = () => {
       hideInSearch: true,
     },
     {
-      title: '底图',
+      title: '操作',
       hideInSearch: true,
       render: (_, record) => (
-        <Button onClick={() => handlePreviewImage(record.img_blob)} type="link">
-          预览
-        </Button>
+        <Space>
+          <Button
+            onClick={() => handlePreviewImage(record.img_blob)}
+            type="link"
+          >
+            预览
+          </Button>
+          <Popconfirm
+            title="确认删除该底图？"
+            description="此操作不可逆"
+            onConfirm={async () => {
+              const res = await deleteImg(record.project_id, record.name);
+              console.log(res);
+              tableRef.current.reload();
+            }}
+            okText="是"
+            cancelText="否"
+          >
+            <Button type="link" danger>
+              删除
+            </Button>
+          </Popconfirm>
+          <Button
+            type="link"
+            onClick={() => {
+              setCurrentData(record);
+              handleUpdateVisible(true);
+            }}
+          >
+            修改
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -185,17 +217,28 @@ const ImgMag: React.FC = () => {
           tableRef.current.reload();
         }}
         onOk={async () => {
-          const success = true;
-          if (success) {
-            handleCreateVisible(false);
-            if (tableRef.current) {
-              tableRef.current.reload();
-            }
+          handleCreateVisible(false);
+          if (tableRef.current) {
+            tableRef.current.reload();
           }
-          return;
         }}
         modalVisible={createModalVisible}
         projectDist={projectDist}
+      />
+      <UpdateForm
+        onCancel={() => {
+          handleUpdateVisible(false);
+          tableRef.current.reload();
+        }}
+        onOk={async () => {
+          handleUpdateVisible(false);
+          if (tableRef.current) {
+            tableRef.current.reload();
+          }
+        }}
+        modalVisible={updateModalVisible}
+        projectDist={projectDist}
+        currentData={currentData}
       />
     </PageContainer>
   );
