@@ -25,14 +25,20 @@ export default defineConfig({
       component: './Project',
     },
     {
+      name: '底图管理',
+      path: '/img',
+      component: './ImgMag',
+    },
+    {
       name: '事件管理',
       path: '/event',
       component: './Event',
     },
+
     {
-      name: '底图管理',
-      path: '/img',
-      component: './ImgMag',
+      name: '事件成图',
+      path: '/creat',
+      // component: './ImgMag',
     },
   ],
   npmClient: 'pnpm',

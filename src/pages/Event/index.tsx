@@ -21,6 +21,18 @@ const Event: React.FC = () => {
   const [selectedRowsState, setSelectedRows] = useState([]);
   const [projectDist, setProjectDist] = useState({});
   const tableRef = useRef();
+  const formRef = useRef();
+
+  useEffect(() => {
+    // 获取路由参数
+    const params = new URLSearchParams(location.search);
+    const projectId = params.get('project_id');
+    if (projectId) {
+      formRef.current?.setFieldsValue({ project_id: projectId });
+      formRef.current.submit();
+    }
+  }, []);
+
   const columns = [
     {
       title: '所属项目',
@@ -116,6 +128,7 @@ const Event: React.FC = () => {
     >
       <ProTable
         actionRef={tableRef}
+        formRef={formRef}
         rowKey="event_key"
         search={{
           labelWidth: 120,

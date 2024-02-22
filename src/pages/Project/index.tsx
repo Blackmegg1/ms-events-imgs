@@ -1,5 +1,6 @@
 import services from '@/services/project';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
+import { Link } from '@umijs/max';
 import { Button, Space } from 'antd';
 import dayjs from 'dayjs';
 import { useRef, useState } from 'react';
@@ -50,8 +51,20 @@ const HomePage: React.FC = () => {
             >
               编辑
             </Button>
-            <Button type="link">底图管理</Button>
-            <Button type="link">事件管理</Button>
+            <Link
+              to={{
+                pathname: `/img?project_id=${record.id}`,
+              }}
+            >
+              底图管理
+            </Link>
+            <Link
+              to={{
+                pathname: `/event?project_id=${record.id}`,
+              }}
+            >
+              事件管理
+            </Link>
           </Space>
         );
       },

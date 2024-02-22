@@ -35,6 +35,18 @@ const ImgMag: React.FC = () => {
   const [updateModalVisible, handleUpdateVisible] = useState(false);
   const [currentData, setCurrentData] = useState({});
   const tableRef = useRef();
+  const formRef = useRef();
+
+  useEffect(() => {
+    // 获取路由参数
+    const params = new URLSearchParams(location.search);
+    const projectId = params.get('project_id');
+    if (projectId) {
+      formRef.current?.setFieldsValue({ project_id: projectId });
+      formRef.current.submit();
+    }
+  }, []);
+
   const columns = [
     {
       title: '所属项目',
@@ -131,6 +143,15 @@ const ImgMag: React.FC = () => {
           >
             预览
           </Button>
+          <Button
+            type="link"
+            onClick={() => {
+              setCurrentData(record);
+              handleUpdateVisible(true);
+            }}
+          >
+            修改
+          </Button>
           <Popconfirm
             title="确认删除该底图？"
             description="此操作不可逆"
@@ -146,15 +167,6 @@ const ImgMag: React.FC = () => {
               删除
             </Button>
           </Popconfirm>
-          <Button
-            type="link"
-            onClick={() => {
-              setCurrentData(record);
-              handleUpdateVisible(true);
-            }}
-          >
-            修改
-          </Button>
         </Space>
       ),
     },
@@ -185,6 +197,7 @@ const ImgMag: React.FC = () => {
     >
       <ProTable
         actionRef={tableRef}
+        formRef={formRef}
         rowKey="name"
         search={{
           labelWidth: 120,
