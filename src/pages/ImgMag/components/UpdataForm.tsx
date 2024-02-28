@@ -45,7 +45,8 @@ const UpdateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
         };
       });
       setOptions(tmp);
-      console.log(currentData);
+      form.setFieldsValue(currentData);
+
       if (currentData.img_blob) {
         const imgBlob = base64StringToBlob(currentData.img_blob);
         const imgUrl = URL.createObjectURL(imgBlob);
@@ -110,6 +111,7 @@ const UpdateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
       } catch (e) {
         message.error(e.message);
       }
+      form.resetFields();
     } else {
       return false;
     }

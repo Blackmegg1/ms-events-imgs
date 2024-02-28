@@ -7,7 +7,7 @@ export default defineConfig({
   initialState: {},
   request: {},
   layout: {
-    title: '微震事件成图助手',
+    title: '微震事件分析工具',
   },
   routes: [
     {
@@ -38,7 +38,7 @@ export default defineConfig({
     {
       name: '事件成图',
       path: '/creat',
-      // component: './ImgMag',
+      component: './Create',
     },
   ],
   npmClient: 'pnpm',

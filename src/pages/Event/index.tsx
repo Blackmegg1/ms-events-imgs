@@ -33,6 +33,23 @@ const Event: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    async function fetchDist() {
+      const response = await getProjectDist();
+      console.log(response);
+      const distObj: any = {};
+      response.forEach((project: { projectName: string; id: number }) => {
+        distObj[project.id] = {
+          text: project.projectName,
+          status: project.projectName,
+        };
+      });
+      setProjectDist(distObj);
+      return;
+    }
+    fetchDist();
+  }, []);
+
   const columns = [
     {
       title: '所属项目',
@@ -97,28 +114,19 @@ const Event: React.FC = () => {
       hideInSearch: true,
     },
     {
+      title: '发震日期段',
+      dataIndex: 'timeRage',
+      valueType: 'dateRange',
+      hideInTable: true,
+      hideInForm: true,
+    },
+    {
       title: '发震日期',
       dataIndex: 'time',
       valueType: 'date',
+      search: false,
     },
   ];
-
-  useEffect(() => {
-    async function fetchDist() {
-      const response = await getProjectDist();
-      console.log(response);
-      const distObj: any = {};
-      response.forEach((project: { projectName: string; id: number }) => {
-        distObj[project.id] = {
-          text: project.projectName,
-          status: project.projectName,
-        };
-      });
-      setProjectDist(distObj);
-      return;
-    }
-    fetchDist();
-  }, []);
 
   return (
     <PageContainer
@@ -155,8 +163,13 @@ const Event: React.FC = () => {
             setSelectedRows(selectedRows.map((row) => row?.event_key)),
         }}
         request={async (params) => {
+          console.log(params);
           const { list, success, total } = await getEventList({
-            ...params,
+            pageSize: params.pageSize,
+            current: params.current,
+            timeBegin: params.timeRage?.[0] || null,
+            timeEnd: params.timeRage?.[1] || null,
+            project_id: params.project_id || null,
             // @ts-ignore
           });
           return {
