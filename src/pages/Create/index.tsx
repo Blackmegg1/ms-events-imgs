@@ -30,6 +30,7 @@ const Create = () => {
   }, []);
 
   const getEvent = async (params: { timeRage: any[]; project_id: any }) => {
+    debugger;
     const { list } = await getEventList({
       pageSize: 1000,
       current: 1,
@@ -80,7 +81,7 @@ const Create = () => {
                 placeholder="请选择"
               />
             </Form.Item>
-            <Form.Item label="事件时间段" name="timeRange">
+            <Form.Item label="事件时间段" name="timeRage">
               <RangePicker />
             </Form.Item>
             <Form.Item>
@@ -98,6 +99,7 @@ const Create = () => {
                   type="primary"
                   onClick={() => {
                     const params = form.getFieldsValue();
+                    console.log(params, 'params');
                     getEvent(params);
                     getImg(params);
                   }}
