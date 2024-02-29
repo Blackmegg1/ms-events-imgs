@@ -6,6 +6,7 @@ import { Button, Card, DatePicker, Form, Select, Space, message } from 'antd';
 import { useEffect, useState } from 'react';
 import ColorScale, { getColor } from './components/ColorScale';
 import Planar from './components/Planar';
+import dayjs from 'dayjs';
 
 const { RangePicker } = DatePicker;
 
@@ -31,11 +32,12 @@ const Create = () => {
 
   const getEvent = async (params: { timeRage: any[]; project_id: any }) => {
     debugger;
+    const formattedTimeRange = params.timeRage.map(date => dayjs(date).format('YYYY-MM-DD'));
     const { list } = await getEventList({
       pageSize: 1000,
       current: 1,
-      timeBegin: params.timeRage?.[0] || null,
-      timeEnd: params.timeRage?.[1] || null,
+      timeBegin: formattedTimeRange[0] || null,
+      timeEnd: formattedTimeRange[1] || null,
       project_id: params.project_id || null,
     });
     if (list) {
