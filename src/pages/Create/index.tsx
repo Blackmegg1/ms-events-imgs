@@ -56,7 +56,7 @@ const Create = () => {
   };
 
   const getImg = async (params: { project_id: number }) => {
-    const { list } = await getImgList({
+    const { list } = await getImgList({ 
       pageSize: 1000,
       current: 1,
       project_id: params.project_id || null,

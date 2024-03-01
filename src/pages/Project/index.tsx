@@ -1,7 +1,8 @@
+import { batchDeleteProjectEvents } from '@/services/event/EventController';
 import services from '@/services/project';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { Link } from '@umijs/max';
-import { Button, Space } from 'antd';
+import { Button, Popconfirm, Space, message } from 'antd';
 import dayjs from 'dayjs';
 import { useRef, useState } from 'react';
 import CreateForm from './component/CreateForm';
@@ -65,6 +66,24 @@ const HomePage: React.FC = () => {
             >
               事件管理
             </Link>
+            <Popconfirm
+              title="确认清除该项目下所有事件？"
+              description="此操作不可逆"
+              okText="是"
+              cancelText="否"
+              onConfirm={async () => {
+                const res = await batchDeleteProjectEvents(record.id);
+                if (res.status === 200) {
+                  message.success('事件清除成功！');
+                } else {
+                  message.error('事件清除失败！');
+                }
+              }}
+            >
+              <Button danger type="link">
+                清除事件
+              </Button>
+            </Popconfirm>
           </Space>
         );
       },

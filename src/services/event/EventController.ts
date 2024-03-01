@@ -39,3 +39,10 @@ export function batchAddEvent(formdata: any) {
     data: formdata,
   });
 }
+
+export function batchDeleteProjectEvents(project_id: Number) {
+  return request('/api/event/batch-delete-project', {
+    method: 'post',
+    data: { project_id },
+  });
+}
