@@ -1,5 +1,5 @@
 import eventServices from '@/services/event';
-import { Button, DatePicker, Form, Modal, Select, Upload, message } from 'antd';
+import { Button, Form, Modal, Select, Upload, message } from 'antd';
 import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 const { batchAddEvent } = eventServices.EventController;
@@ -39,7 +39,6 @@ const BatchImport: React.FC<PropsWithChildren<BatchImportProps>> = ({
     const formData = new FormData();
     formData.append('project_id', values.project_id);
     formData.append('file', values.excel.file.originFileObj);
-    formData.append('time', values.date.format('YYYY-MM-DD'));
 
     batchAddEvent(formData)
       .then((res) => {
@@ -72,9 +71,6 @@ const BatchImport: React.FC<PropsWithChildren<BatchImportProps>> = ({
           <Upload>
             <Button>点击上传</Button>
           </Upload>
-        </Form.Item>
-        <Form.Item name="date" label="发震日期" required>
-          <DatePicker />
         </Form.Item>
       </Form>
     </Modal>

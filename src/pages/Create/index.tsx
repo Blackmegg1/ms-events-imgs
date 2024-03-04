@@ -31,7 +31,6 @@ const Create = () => {
   }, []);
 
   const getEvent = async (params: { timeRage: any[]; project_id: any }) => {
-    debugger;
     const formattedTimeRange = params.timeRage.map(date => dayjs(date).format('YYYY-MM-DD'));
     const { list } = await getEventList({
       pageSize: 1000,
