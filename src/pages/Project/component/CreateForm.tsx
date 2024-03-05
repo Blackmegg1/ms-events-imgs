@@ -1,5 +1,5 @@
 import services from '@/services/project';
-import { Button, DatePicker, Form, Input, Modal, message } from 'antd';
+import { Button, DatePicker, Form, Input, Modal, Select, message } from 'antd';
 import dayjs from 'dayjs';
 import React, { PropsWithChildren, useState } from 'react';
 
@@ -66,6 +66,18 @@ const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
           rules={[{ required: true, message: '请输入项目名称!' }]}
         >
           <Input />
+        </Form.Item>
+        <Form.Item
+          label="事件点尺寸"
+          name="by_mag"
+          rules={[{ required: true, message: '请输入事件点尺寸' }]}
+        >
+          <Select
+            options={[
+              { label: '震级相关', value: 1 },
+              { label: '默认尺寸', value: 0 },
+            ]}
+          />
         </Form.Item>
         <Form.Item name="initTime" label="更新时间">
           <DatePicker format="YYYY-MM-DD HH:mm:ss" disabled />

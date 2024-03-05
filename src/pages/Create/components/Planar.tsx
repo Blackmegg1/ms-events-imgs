@@ -14,6 +14,7 @@ interface Iprops {
   top_margin: number;
   left_margin: number;
   eventList: any[];
+  byMag: number;
 }
 
 const Planar: React.FC<Iprops> = (props: Iprops) => {
@@ -30,6 +31,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     top_margin,
     left_margin,
     eventList,
+    byMag,
   } = props;
 
   const canvasRef = createRef<HTMLCanvasElement>();
@@ -61,11 +63,15 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     if (magnitude < 0) {
       magnitude = 0;
     }
-    let radius = 10;
-    if (magnitude < 1) {
-      radius = 10 - (1 - magnitude) * 5;
+    if (byMag) {
+      let radius = 10;
+      if (magnitude < 1) {
+        radius = 10 - (1 - magnitude) * 5;
+      }
+      return Math.max(5, radius);
+    } else {
+      return 5;
     }
-    return Math.max(5, radius);
   }
 
   function drawMsEvents(cvs: any, ctx: any) {

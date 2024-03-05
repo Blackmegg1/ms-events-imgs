@@ -1,5 +1,5 @@
 import services from '@/services/project';
-import { Button, DatePicker, Form, Input, Modal, message } from 'antd';
+import { Button, DatePicker, Form, Input, Modal, Select, message } from 'antd';
 import dayjs from 'dayjs';
 import React, { PropsWithChildren, useEffect, useState } from 'react';
 
@@ -9,6 +9,7 @@ interface EditFormProps {
     id: number;
     projectName: string;
     initTime: string;
+    by_mag: number;
   };
   onCancel: () => void;
 }
@@ -55,6 +56,7 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
       form.setFieldValue('projectName', currentRecord?.projectName);
       const today = dayjs();
       form.setFieldValue('initTime', today);
+      form.setFieldValue('by_mag', currentRecord?.by_mag);
     }
   }, [currentRecord]);
 
@@ -75,8 +77,20 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
         >
           <Input />
         </Form.Item>
+        <Form.Item
+          label="事件点尺寸"
+          name="by_mag"
+          rules={[{ required: true, message: '请输入事件点尺寸' }]}
+        >
+          <Select
+            options={[
+              { label: '震级相关', value: 1 },
+              { label: '默认尺寸', value: 0 },
+            ]}
+          />
+        </Form.Item>
         <Form.Item name="initTime" label="更新时间">
-          <DatePicker format="YYYY-MM-DD HH:mm:ss" disabled/>
+          <DatePicker format="YYYY-MM-DD HH:mm:ss" disabled />
         </Form.Item>
       </Form>
     </Modal>

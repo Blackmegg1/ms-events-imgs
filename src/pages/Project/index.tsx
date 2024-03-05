@@ -38,6 +38,17 @@ const HomePage: React.FC = () => {
       },
     },
     {
+      title: '事件点尺寸',
+      dataIndex: 'by_mag',
+      render: (_: any, record: any) => {
+        if (record.by_mag) {
+          return '震级相关';
+        } else {
+          return '默认尺寸';
+        }
+      },
+    },
+    {
       title: '操作',
       width: '300px',
       render: (_: any, record: any) => {

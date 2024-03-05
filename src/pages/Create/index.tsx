@@ -3,10 +3,10 @@ import { getImgList } from '@/services/imgmag/ImgmagController';
 import { getProjectDist } from '@/services/project/ProjectController';
 import { PageContainer } from '@ant-design/pro-components';
 import { Button, Card, DatePicker, Form, Select, Space, message } from 'antd';
+import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import ColorScale, { getColor } from './components/ColorScale';
 import Planar from './components/Planar';
-import dayjs from 'dayjs';
 
 const { RangePicker } = DatePicker;
 
@@ -14,11 +14,14 @@ const Create = () => {
   const [projectArr, setProjectArr] = useState([]);
   const [eventList, setEventList] = useState([]);
   const [imgList, setImgList] = useState([]);
+  const [projectDist, setProjectDist] = useState([]);
+  const [byMag, setByMag] = useState(1);
   const [form] = Form.useForm();
 
   useEffect(() => {
     async function fetchDist() {
       const response = await getProjectDist();
+      setProjectDist(response);
       console.log(response);
       const distArr: any = [];
       response.forEach((project: { projectName: string; id: number }) => {
@@ -31,7 +34,9 @@ const Create = () => {
   }, []);
 
   const getEvent = async (params: { timeRage: any[]; project_id: any }) => {
-    const formattedTimeRange = params.timeRage.map(date => dayjs(date).format('YYYY-MM-DD'));
+    const formattedTimeRange = params.timeRage.map((date) =>
+      dayjs(date).format('YYYY-MM-DD'),
+    );
     const { list } = await getEventList({
       pageSize: 1000,
       current: 1,
@@ -55,7 +60,7 @@ const Create = () => {
   };
 
   const getImg = async (params: { project_id: number }) => {
-    const { list } = await getImgList({ 
+    const { list } = await getImgList({
       pageSize: 1000,
       current: 1,
       project_id: params.project_id || null,
@@ -64,6 +69,17 @@ const Create = () => {
       setImgList(list);
     }
     return list;
+  };
+
+  const getByMag = (params: { project_id: number }) => {
+    if (!projectDist) {
+      return 1;
+    } else {
+      const currentProject = projectDist.find(
+        (i) => i.id === params.project_id,
+      );
+      return currentProject?.by_mag;
+    }
   };
 
   return (
@@ -103,6 +119,8 @@ const Create = () => {
                     console.log(params, 'params');
                     getEvent(params);
                     getImg(params);
+                    debugger;
+                    setByMag(getByMag(params));
                   }}
                 >
                   成图
@@ -141,6 +159,7 @@ const Create = () => {
                     top_margin={img.top_margin}
                     left_margin={img.left_margin}
                     eventList={eventList}
+                    byMag={byMag}
                   />
                   <ColorScale />
                 </div>
