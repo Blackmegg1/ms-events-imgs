@@ -74,7 +74,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     }
   }
 
-  function drawMsEvents(cvs: any, ctx: any) {
+  function drawMsEvents(cvs: any, ctx: any, listeners) {
     const wRatio = (cvs.width - left_margin) / state.width;
     const hRatio = (cvs.height - top_margin) / state.height;
     // const engyRatio = maxRadius / maxEnergy;
@@ -93,9 +93,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
       ctx.arc(x, y, r, 0, 2 * Math.PI);
       ctx.stroke();
       ctx.fill();
-
-      // 为点添加事件监听器
-      cvs.addEventListener('click', (event) => {
+      const handleClick = (event: { clientX: number; clientY: number }) => {
         const rect = cvs.getBoundingClientRect();
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
@@ -108,7 +106,10 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
             `事件坐标:(${evt.loc_x},${evt.loc_y},${evt.loc_z}) 时间:${evt.time} 震级:${evt.magnitude}M 能量:${evt.energy}KJ`,
           );
         }
-      });
+      };
+      // 为点添加事件监听器
+      cvs.addEventListener('click', handleClick);
+      listeners.push(handleClick);
     }
   }
 
@@ -146,6 +147,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    const listeners: any[] = [];
     if (canvas) {
       const canvasWidth = canvas.clientWidth;
       canvas.width = canvasWidth;
@@ -170,10 +172,15 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
           img.width * ratio,
           img.height * hRatio,
         );
-        drawMsEvents(canvas, ctx);
+        drawMsEvents(canvas, ctx, listeners);
       };
       img.src = `data:image/png;base64,${img_base64}`;
     }
+    return () => {
+      listeners.forEach((listener) => {
+        canvas?.removeEventListener('click', listener);
+      });
+    };
   }, [state, img_base64, props]);
 
   return (
