@@ -38,7 +38,7 @@ const Create = () => {
       dayjs(date).format('YYYY-MM-DD'),
     );
     const { list } = await getEventList({
-      pageSize: 1000,
+      pageSize: 999999,
       current: 1,
       timeBegin: formattedTimeRange[0] || null,
       timeEnd: formattedTimeRange[1] || null,

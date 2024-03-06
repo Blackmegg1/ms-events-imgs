@@ -105,7 +105,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
           Math.pow(r, 2)
         ) {
           message.info(
-            `事件坐标:(${evt.loc_x},${evt.loc_y},${evt.loc_z}) 震级:${evt.magnitude}M 能量:${evt.energy}KJ`,
+            `事件坐标:(${evt.loc_x},${evt.loc_y},${evt.loc_z}) 时间:${evt.time} 震级:${evt.magnitude}M 能量:${evt.energy}KJ`,
           );
         }
       });
