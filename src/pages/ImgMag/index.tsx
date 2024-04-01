@@ -198,7 +198,7 @@ const ImgMag: React.FC = () => {
       <ProTable
         actionRef={tableRef}
         formRef={formRef}
-        rowKey="name"
+        rowKey={(record) => `${record['project_id']}-${record.name}`}
         search={{
           labelWidth: 120,
         }}
