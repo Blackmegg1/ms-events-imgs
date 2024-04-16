@@ -2,27 +2,35 @@ import { getEventList } from '@/services/event/EventController';
 import { getImgList } from '@/services/imgmag/ImgmagController';
 import { getProjectDist } from '@/services/project/ProjectController';
 import { PageContainer } from '@ant-design/pro-components';
-import { Button, Card, DatePicker, Form, Select, Space, message } from 'antd';
+import {
+  Button,
+  Card,
+  DatePicker,
+  Form,
+  InputNumber,
+  Select,
+  Space,
+  message,
+} from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import ColorScale, { getColor } from './components/ColorScale';
+import ColorScale from './components/ColorScale';
 import Planar from './components/Planar';
 
 const { RangePicker } = DatePicker;
 
-const Create = () => {
+const Frequency = () => {
   const [projectArr, setProjectArr] = useState([]);
+  const [projectDist, setProjectDist] = useState([]);
+  const [form] = Form.useForm();
   const [eventList, setEventList] = useState([]);
   const [imgList, setImgList] = useState([]);
-  const [projectDist, setProjectDist] = useState([]);
-  const [byMag, setByMag] = useState(1);
-  const [form] = Form.useForm();
+  const [divide, setDivide] = useState(10);
 
   useEffect(() => {
     async function fetchDist() {
       const response = await getProjectDist();
       setProjectDist(response);
-      console.log(response);
       const distArr: any = [];
       response.forEach((project: { projectName: string; id: number }) => {
         distArr.push({ value: project.id, label: project.projectName });
@@ -45,11 +53,7 @@ const Create = () => {
       project_id: params.project_id || null,
     });
     if (list) {
-      const updatedList = list.map((e) => {
-        const color = getColor(+e.magnitude);
-        return { ...e, color }; // 添加color属性并返回新的对象
-      });
-      setEventList(updatedList); // 更新list
+      setEventList(list); // 更新list
       if (list.length) {
         message.success(`当前时间段共有${list.length}个微震事件`);
       } else {
@@ -71,21 +75,10 @@ const Create = () => {
     return list;
   };
 
-  const getByMag = (params: { project_id: number }) => {
-    if (!projectDist) {
-      return 1;
-    } else {
-      const currentProject = projectDist.find(
-        (i) => i.id === params.project_id,
-      );
-      return currentProject?.by_mag;
-    }
-  };
-
   return (
     <PageContainer
       header={{
-        title: '平面分布图',
+        title: '频次密度图',
       }}
     >
       <Card>
@@ -100,6 +93,13 @@ const Create = () => {
             </Form.Item>
             <Form.Item label="事件时间段" name="timeRage">
               <RangePicker />
+            </Form.Item>
+            <Form.Item label="网格大小" name="divide">
+              <InputNumber
+                style={{ width: 100 }}
+                addonAfter="米"
+                defaultValue={10}
+              />
             </Form.Item>
             <Form.Item>
               <Space>
@@ -119,7 +119,7 @@ const Create = () => {
                     console.log(params, 'params');
                     getEvent(params);
                     getImg(params);
-                    setByMag(getByMag(params));
+                    setDivide(params.divide);
                   }}
                 >
                   成图
@@ -158,7 +158,7 @@ const Create = () => {
                     top_margin={img.top_margin}
                     left_margin={img.left_margin}
                     eventList={eventList}
-                    byMag={byMag}
+                    divide={divide}
                   />
                   <ColorScale />
                 </div>
@@ -170,4 +170,4 @@ const Create = () => {
   );
 };
 
-export default Create;
+export default Frequency;

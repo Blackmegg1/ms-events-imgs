@@ -34,20 +34,29 @@ export default defineConfig({
       path: '/event',
       component: './Event',
     },
-
     {
       name: '事件成图',
-      path: '/creat',
-      component: './Create',
+      path: '/createImg',
+      routes: [
+        {
+          name: '平面分布图',
+          path: '/createImg/create',
+          component: './Create',
+        },
+        {
+          name: '频次密度图',
+          path: '/createImg/frequency',
+          component:'./Frequency'
+        },
+      ],
     },
   ],
   npmClient: 'pnpm',
   proxy: {
     '/api': {
-      'target': 'http://localhost:3000/',
-      'changeOrigin': true,
-      'pathRewrite': { '^/api' : '' },
+      target: 'http://localhost:3000/',
+      changeOrigin: true,
+      pathRewrite: { '^/api': '' },
     },
   },
 });
-
