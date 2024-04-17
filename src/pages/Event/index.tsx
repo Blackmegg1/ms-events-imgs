@@ -176,7 +176,10 @@ const Event: React.FC = () => {
     const csvData = [csvHeader, ...csvRows].join('\n');
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    const fileName = 'data.csv';
+      // @ts-ignore
+    const projectName = projectDist[formParams.project_id]?.text;
+    const fileName = `${projectName} ${formattedTimeRange?.[0]}~${formattedTimeRange?.[1]}.csv`;
+
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
     link.setAttribute('download', fileName);
