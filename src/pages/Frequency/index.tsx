@@ -42,7 +42,7 @@ const Frequency = () => {
   }, []);
 
   const getEvent = async (params: { timeRage: any[]; project_id: any }) => {
-    const formattedTimeRange = params.timeRage.map((date) =>
+    const formattedTimeRange = params.timeRage?.map((date) =>
       dayjs(date).format('YYYY-MM-DD'),
     );
     const { list } = await getEventList({

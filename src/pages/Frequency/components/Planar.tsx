@@ -155,7 +155,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
           img.height * hRatio,
         );
         if (state.width !== 0 && state.height !== 0) {
-          drawMsEvents(canvas, ctx, divide);
+          drawMsEvents(canvas, ctx, divide ?? 10);
         }
       };
       img.src = `data:image/png;base64,${img_base64}`;
@@ -165,7 +165,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
         canvas?.removeEventListener('click', listener);
       });
     };
-  }, [state, img_base64, props]);
+  }, [state, img_base64, props, divide]);
 
   return (
     <canvas
