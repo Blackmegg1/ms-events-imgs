@@ -1,3 +1,4 @@
+import { Divider, message } from 'antd';
 import { createRef, useEffect, useState } from 'react';
 import { getColor } from './ColorScale';
 
@@ -38,24 +39,23 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
   const [state, setState] = useState({
     width: 0,
     height: 0,
+    minx: 0,
+    miny: 0,
+    maxx: 0,
+    maxy: 0,
   });
+  const [description, setDescription] = useState<string | undefined>(undefined);
 
   function getXY(msevt: { loc_y: any; loc_z: any; loc_x: any }) {
-    let x, y, minx, miny;
+    let x, y;
     if (norm_axis === 'x') {
       (x = msevt.loc_y), (y = msevt.loc_z);
-      minx = min_y;
-      miny = min_z;
     } else if (norm_axis === 'y') {
       (x = msevt.loc_x), (y = msevt.loc_z);
-      minx = min_x;
-      miny = min_z;
     } else {
       (x = msevt.loc_x), (y = msevt.loc_y);
-      minx = min_x;
-      miny = min_y;
     }
-    return { x, y, minx, miny };
+    return { x, y };
   }
 
   function drawMsEvents(cvs: any, ctx: any, divide: number) {
@@ -68,16 +68,47 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
       new Array(gridWidth).fill(0),
     ); // 初始化二维数组
 
+    if (eventList.length === 0) {
+      message.error('没有微震事件！');
+      return;
+    }
+
     // 遍历事件列表,统计每个网格内事件的数量
     for (let i = 0; i < eventList.length; i++) {
       const evt = eventList[i];
       const xy = getXY(evt);
-      const x = Math.floor((wRatio * (xy.x - xy.minx)) / divide);
-      const y = Math.floor(
-        (cvs.height - hRatio * (xy.y - xy.miny) + top_margin) / divide,
+      const x = Math.floor((wRatio * (xy.x - state.minx)) / divide);
+      let y = Math.floor(
+        (cvs.height - hRatio * (xy.y - state.miny) + top_margin) / divide,
       );
+      // 有些事件不在底图区域内，直接略过
+      if (y < 0 || y > gridHeight) {
+        continue;
+      }
+      if (x < 0 || x > gridWidth) {
+        continue;
+      }
       gridCount[y][x]++;
     }
+
+    // 找出事件数最多的网格及其坐标
+    let maxCount = 0;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = 0; y < gridHeight; y++) {
+      for (let x = 0; x < gridWidth; x++) {
+        const count = gridCount[y][x];
+        if (count > maxCount) {
+          maxCount = count;
+          maxX = x;
+          maxY = y;
+        }
+      }
+    }
+    debugger;
+    setDescription(
+      `事件数最多的网格坐标为 (${maxX * divide}, ${state.maxy - maxY * divide}), 事件数为 ${maxCount}`,
+    );
 
     // 绘制网格
     for (let y = 0; y < gridHeight; y++) {
@@ -103,6 +134,10 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
             ...prevState,
             width: max_y - min_y,
             height: max_z - min_z,
+            minx: min_y,
+            miny: min_z,
+            maxx: max_y,
+            maxy: max_z,
           };
         });
         break;
@@ -112,6 +147,10 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
             ...prevState,
             width: max_x - min_x,
             height: max_z - min_z,
+            minx: min_x,
+            miny: min_z,
+            maxx: max_x,
+            maxy: max_z,
           };
         });
         break;
@@ -121,6 +160,10 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
             ...prevState,
             width: max_x - min_x,
             height: max_y - min_y,
+            minx: min_x,
+            miny: min_y,
+            maxx: max_x,
+            maxy: max_y,
           };
         });
         break;
@@ -168,12 +211,16 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
   }, [state, img_base64, props, divide]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        width: '90%',
-      }}
-    />
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: '100%',
+        }}
+      />
+      <Divider />
+      {description ? <span>{description}</span> : null}
+    </div>
   );
 };
 

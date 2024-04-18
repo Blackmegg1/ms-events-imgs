@@ -2,25 +2,39 @@ import { createRef, useEffect } from 'react';
 
 const scales = [
   {
-    red: 255,
-    green: 50,
-    blue: 50,
-    value: 20,
+    red: 195,
+    green: 30,
+    blue: 30,
+    value: 40,
     ratio: 0,
+  },
+  {
+    red: 255,
+    green: 60,
+    blue: 60,
+    value: 30,
+    ratio: 0.25,
   },
   {
     red: 255,
     green: 192,
     blue: 0,
+    value: 20,
+    ratio: 0.25,
+  },
+  {
+    red: 255,
+    green: 202,
+    blue: 0,
     value: 10,
-    ratio: 0.5,
+    ratio: 0.25,
   },
   {
     red: 10,
     green: 120,
     blue: 255,
     value: 1,
-    ratio: 0.49,
+    ratio: 0.24,
   },
 ];
 

@@ -48,8 +48,8 @@ const Frequency = () => {
     const { list } = await getEventList({
       pageSize: 999999,
       current: 1,
-      timeBegin: formattedTimeRange[0] || null,
-      timeEnd: formattedTimeRange[1] || null,
+      timeBegin: formattedTimeRange?.[0] || null,
+      timeEnd: formattedTimeRange?.[1] || null,
       project_id: params.project_id || null,
     });
     if (list) {

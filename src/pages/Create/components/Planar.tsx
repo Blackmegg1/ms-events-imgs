@@ -38,24 +38,20 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
   const [state, setState] = useState({
     width: 0,
     height: 0,
+    minx: 0,
+    miny: 0,
   });
 
   function getXY(msevt: { loc_y: any; loc_z: any; loc_x: any }) {
-    let x, y, minx, miny;
+    let x, y;
     if (norm_axis === 'x') {
       (x = msevt.loc_y), (y = msevt.loc_z);
-      minx = min_y;
-      miny = min_z;
     } else if (norm_axis === 'y') {
       (x = msevt.loc_x), (y = msevt.loc_z);
-      minx = min_x;
-      miny = min_z;
     } else {
       (x = msevt.loc_x), (y = msevt.loc_y);
-      minx = min_x;
-      miny = min_y;
     }
-    return { x, y, minx, miny };
+    return { x, y };
   }
 
   function getRadius(magnitude: number) {
@@ -82,8 +78,8 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     for (let i = 0; i < eventList.length; i++) {
       const evt = eventList[i];
       const xy = getXY(evt);
-      const x = wRatio * (xy.x - xy.minx) + left_margin;
-      const y = cvs.height - hRatio * (xy.y - xy.miny) + top_margin;
+      const x = wRatio * (xy.x - state.minx) + left_margin;
+      const y = cvs.height - hRatio * (xy.y - state.miny) + top_margin;
       let fc = evt.color;
       const r = getRadius(+evt.magnitude);
 
@@ -122,6 +118,8 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
             ...prevState,
             width: max_y - min_y,
             height: max_z - min_z,
+            minx: min_y,
+            miny: min_z,
           };
         });
         break;
@@ -131,6 +129,8 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
             ...prevState,
             width: max_x - min_x,
             height: max_z - min_z,
+            minx: min_x,
+            miny: min_z,
           };
         });
         break;
@@ -140,6 +140,8 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
             ...prevState,
             width: max_x - min_x,
             height: max_y - min_y,
+            minx: min_x,
+            miny: min_y,
           };
         });
         break;
