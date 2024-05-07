@@ -1,8 +1,9 @@
-import { Divider, message } from 'antd';
+import { Button, Card, Divider, message } from 'antd';
 import { createRef, useEffect, useState } from 'react';
-import { getColor } from './ColorScale';
+import ColorScale, { getColor } from './ColorScale';
 
 interface Iprops {
+  key: string;
   norm_axis: string;
   min_x: number;
   max_x: number;
@@ -18,8 +19,15 @@ interface Iprops {
   divide: number;
 }
 
+interface GridCenterData {
+  geoX: number;
+  geoY: number;
+  count: any;
+}
+
 const Planar: React.FC<Iprops> = (props: Iprops) => {
   const {
+    key,
     norm_axis,
     min_x,
     min_y,
@@ -44,6 +52,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     maxx: 0,
     maxy: 0,
   });
+  const [exportData, setExportData] = useState<GridCenterData[]>([]);
   const [description, setDescription] = useState<string | undefined>(undefined);
 
   function getXY(msevt: { loc_y: any; loc_z: any; loc_x: any }) {
@@ -105,15 +114,30 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
         }
       }
     }
-    debugger;
     setDescription(
       `事件数最多的网格坐标为 (${maxX * divide}, ${state.maxy - maxY * divide}), 事件数为 ${maxCount}`,
     );
+
+    const gridCentersWithCount = [];
 
     // 绘制网格
     for (let y = 0; y < gridHeight; y++) {
       for (let x = 0; x < gridWidth; x++) {
         const count = gridCount[y][x];
+
+        // 计算该网格单元中心点对应的真实地理坐标
+        const centerX = (x + 0.5) * divide;
+        const centerY = (y + 0.5) * divide;
+        const geoX = state.minx + centerX / wRatio;
+        const geoY = state.miny + (cvs.height - centerY + top_margin) / hRatio;
+
+        // 将该网格单元的信息存储到数组中
+        gridCentersWithCount.push({
+          geoX,
+          geoY,
+          count,
+        });
+
         let color = getColor(count);
         if (count === 0) {
           ctx.fillStyle = `rgba(255,255,255,0)`;
@@ -124,7 +148,50 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
         }
       }
     }
+    setExportData(gridCentersWithCount);
   }
+
+  const getExportData = () => {
+    console.log('exportData', exportData);
+
+    const headers = [];
+    const axisMapping = {
+      x: { geoX: 'Y', geoY: 'Z' },
+      y: { geoX: 'X', geoY: 'Z' },
+      z: { geoX: 'X', geoY: 'Y' },
+    };
+    const { geoX: geoXHeader, geoY: geoYHeader } = axisMapping[norm_axis];
+    headers.push(geoXHeader, geoYHeader, 'count');
+
+    const csvRows = [];
+    const headerRow = headers.join(',');
+    csvRows.push(headerRow);
+
+    exportData.forEach((row) => {
+      const { geoX, geoY, count } = row;
+      const formattedGeoX = geoX.toFixed(1);
+      const formattedGeoY = geoY.toFixed(1);
+      const csvRow = `${formattedGeoX},${formattedGeoY},${count}`;
+      csvRows.push(csvRow);
+    });
+
+    const csvData = csvRows.join('\n');
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8' });
+    const link = document.createElement('a');
+    const filename = `${name}-${norm_axis}.csv`;
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      window.open(URL.createObjectURL(blob));
+    }
+  };
 
   useEffect(() => {
     switch (norm_axis) {
@@ -211,16 +278,44 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
   }, [state, img_base64, props, divide]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-      <canvas
-        ref={canvasRef}
+    <Card
+      key={key}
+      title={
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            width: '100%',
+          }}
+        >
+          <div>{name}</div>
+          <Button onClick={getExportData}>导出数据</Button>
+        </div>
+      }
+      style={{ marginBottom: '20px' }}
+    >
+      <div
         style={{
+          display: 'flex',
+          flexDirection: 'row',
           width: '100%',
         }}
-      />
-      <Divider />
-      {description ? <span>{description}</span> : null}
-    </div>
+      >
+        <div
+          style={{ display: 'flex', flexDirection: 'column', width: '100%' }}
+        >
+          <canvas
+            ref={canvasRef}
+            style={{
+              width: '100%',
+            }}
+          />
+          <Divider />
+          {description ? <span>{description}</span> : null}
+        </div>
+        <ColorScale />
+      </div>
+    </Card>
   );
 };
 

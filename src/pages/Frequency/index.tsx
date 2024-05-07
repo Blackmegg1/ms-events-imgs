@@ -14,7 +14,6 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import ColorScale from './components/ColorScale';
 import Planar from './components/Planar';
 
 const { RangePicker } = DatePicker;
@@ -133,36 +132,22 @@ const Frequency = () => {
         ? imgList.map((img: any) => {
             // img中img_blob为base64格式，已在后端处理
             return (
-              <Card
+              <Planar
                 key={img.name}
-                title={img.name}
-                style={{ marginBottom: '20px' }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    width: '100%',
-                  }}
-                >
-                  <Planar
-                    img_base64={img.img_blob}
-                    name={img.name}
-                    norm_axis={img.norm_axis}
-                    min_x={img.min_x}
-                    min_y={img.min_y}
-                    min_z={img.min_z}
-                    max_x={img.max_x}
-                    max_y={img.max_y}
-                    max_z={img.max_z}
-                    top_margin={img.top_margin}
-                    left_margin={img.left_margin}
-                    eventList={eventList}
-                    divide={divide}
-                  />
-                  <ColorScale />
-                </div>
-              </Card>
+                img_base64={img.img_blob}
+                name={img.name}
+                norm_axis={img.norm_axis}
+                min_x={img.min_x}
+                min_y={img.min_y}
+                min_z={img.min_z}
+                max_x={img.max_x}
+                max_y={img.max_y}
+                max_z={img.max_z}
+                top_margin={img.top_margin}
+                left_margin={img.left_margin}
+                eventList={eventList}
+                divide={divide}
+              />
             );
           })
         : null}
