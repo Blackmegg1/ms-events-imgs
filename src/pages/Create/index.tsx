@@ -1,11 +1,13 @@
-import { getEventList } from '@/services/event/EventController';
+import { addEvent, getEventList } from '@/services/event/EventController';
 import { getImgList } from '@/services/imgmag/ImgmagController';
 import { getProjectDist } from '@/services/project/ProjectController';
-import { PageContainer } from '@ant-design/pro-components';
+import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { Button, Card, DatePicker, Form, Select, Space, message } from 'antd';
+import { useForm } from 'antd/es/form/Form';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import ColorScale, { getColor } from './components/ColorScale';
+import CreateForm from './components/CreateForm';
 import Planar from './components/Planar';
 
 const { RangePicker } = DatePicker;
@@ -17,12 +19,23 @@ const Create = () => {
   const [projectDist, setProjectDist] = useState([]);
   const [byMag, setByMag] = useState(1);
   const [form] = Form.useForm();
+  const [createEventForm] = useForm();
+  const [createModalVisible, handleCreateVisible] = useState(false);
 
   useEffect(() => {
     async function fetchDist() {
       const response = await getProjectDist();
-      setProjectDist(response);
-      console.log(response);
+      const distObj: any = {};
+      response.forEach(
+        (project: { projectName: string; id: number; by_mag: number }) => {
+          distObj[project.id] = {
+            text: project.projectName,
+            status: project.projectName,
+            byMag: project['by_mag'],
+          };
+        },
+      );
+      setProjectDist(distObj);
       const distArr: any = [];
       response.forEach((project: { projectName: string; id: number }) => {
         distArr.push({ value: project.id, label: project.projectName });
@@ -32,6 +45,84 @@ const Create = () => {
     }
     fetchDist();
   }, []);
+
+  const columns = [
+    {
+      title: '所属项目',
+      dataIndex: 'project_id',
+      formItemProps: {
+        rules: [
+          {
+            required: true,
+            message: '所属项目为必填项',
+          },
+        ],
+      },
+      valueEnum: projectDist,
+    },
+    {
+      title: 'X坐标',
+      dataIndex: 'loc_x',
+      hideInSearch: true,
+      formItemProps: {
+        rules: [
+          {
+            required: true,
+            message: 'X坐标为必填项',
+          },
+        ],
+      },
+    },
+    {
+      title: 'Y坐标',
+      dataIndex: 'loc_y',
+      hideInSearch: true,
+      formItemProps: {
+        rules: [
+          {
+            required: true,
+            message: 'Y坐标为必填项',
+          },
+        ],
+      },
+    },
+    {
+      title: 'Z坐标',
+      dataIndex: 'loc_z',
+      hideInSearch: true,
+      formItemProps: {
+        rules: [
+          {
+            required: true,
+            message: 'Z坐标为必填项',
+          },
+        ],
+      },
+    },
+    {
+      title: '能量(KJ)',
+      dataIndex: 'energy',
+      hideInSearch: true,
+    },
+    {
+      title: '震级(M)',
+      dataIndex: 'magnitude',
+      hideInSearch: true,
+    },
+    {
+      title: '发震日期段',
+      dataIndex: 'timeRage',
+      valueType: 'dateRange',
+      hideInTable: true,
+      hideInForm: true,
+    },
+    {
+      title: '发震日期',
+      dataIndex: 'time',
+      valueType: 'date',
+      search: false,
+    },
+  ];
 
   const getEvent = async (params: { timeRage: any[]; project_id: any }) => {
     const formattedTimeRange = params.timeRage.map((date) =>
@@ -75,10 +166,9 @@ const Create = () => {
     if (!projectDist) {
       return 1;
     } else {
-      const currentProject = projectDist.find(
-        (i) => i.id === params.project_id,
-      );
-      return currentProject?.by_mag;
+      const currentProject = projectDist[params.project_id];
+      console.log(currentProject, 'currentProject');
+      return currentProject?.byMag;
     }
   };
 
@@ -124,6 +214,16 @@ const Create = () => {
                 >
                   成图
                 </Button>
+                <Button
+                  type="primary"
+                  onClick={() => {
+                    const params = form.getFieldsValue();
+                    console.log(params, 'params');
+                    handleCreateVisible(true);
+                  }}
+                >
+                  新建事件
+                </Button>
               </Space>
             </Form.Item>
           </Space>
@@ -166,6 +266,52 @@ const Create = () => {
             );
           })
         : null}
+      <CreateForm
+        onCancel={() => {
+          handleCreateVisible(false);
+        }}
+        modalVisible={createModalVisible}
+        onOk={async () => {
+          const value = createEventForm.getFieldsValue();
+          const project_id = Number(value.project_id);
+          const loc_x = Number(value.loc_x);
+          const loc_y = Number(value.loc_y);
+          const loc_z = Number(value.loc_z);
+          const energy = Number(value.energy);
+          const magnitude = Number(value.magnitude);
+          const time = value.time;
+          const success = await addEvent({
+            project_id,
+            loc_x,
+            loc_y,
+            loc_z,
+            energy,
+            magnitude,
+            time,
+          });
+          if (success) {
+            handleCreateVisible(false);
+            const params = form.getFieldsValue();
+            console.log(params, 'params');
+            getEvent(params);
+            getImg(params);
+            setByMag(getByMag(params));
+          }
+          return;
+        }}
+      >
+        <ProTable
+          rowKey="id"
+          type="form"
+          form={{
+            form: createEventForm,
+            submitter: false,
+            layout: 'horizontal',
+            initialValues: {},
+          }}
+          columns={columns}
+        />
+      </CreateForm>
     </PageContainer>
   );
 };
