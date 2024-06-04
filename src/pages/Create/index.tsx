@@ -6,7 +6,10 @@ import { Button, Card, DatePicker, Form, Select, Space, message } from 'antd';
 import { useForm } from 'antd/es/form/Form';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import ColorScale, { getColor } from './components/ColorScale';
+// import ColorScale, { getColor } from './components/ColorScale';
+import ColorScale from '../TimeSpace/components/ColorScales';
+import { getColor } from '../TimeSpace/components/ColorScales';
+
 import CreateForm from './components/CreateForm';
 import Planar from './components/Planar';
 
@@ -137,7 +140,7 @@ const Create = () => {
     });
     if (list) {
       const updatedList = list.map((e) => {
-        const color = getColor(+e.magnitude);
+        const color = +e.magnitude >= 0 ? getColor(+e.magnitude) : getColor(0);
         return { ...e, color }; // 添加color属性并返回新的对象
       });
       setEventList(updatedList); // 更新list

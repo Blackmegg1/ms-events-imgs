@@ -1,5 +1,11 @@
+import ColorScale from './components/ColorScales';
+
 const TimeSpace = () => {
-  return <div>时空分布图</div>;
+  return (
+    <div>
+      <ColorScale />
+    </div>
+  );
 };
 
 export default TimeSpace;

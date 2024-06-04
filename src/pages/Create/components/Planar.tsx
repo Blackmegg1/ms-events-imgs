@@ -80,10 +80,10 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
       const xy = getXY(evt);
       const x = wRatio * (xy.x - state.minx) + left_margin;
       const y = cvs.height - hRatio * (xy.y - state.miny) + top_margin;
-      let fc = evt.color;
+      const rgbValues = evt.color.match(/\d+/g).map(Number);
       const r = getRadius(+evt.magnitude);
 
-      ctx.fillStyle = `rgba(${fc.red},${fc.green},${fc.blue}, 0.6)`;
+      ctx.fillStyle = `rgba(${rgbValues[0]}, ${rgbValues[1]}, ${rgbValues[2]}, 0.6)`;
       ctx.strokeStyle = `rgba(255,255,255,0)`;
       ctx.lineWidth = 1;
       ctx.beginPath();

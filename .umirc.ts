@@ -48,6 +48,11 @@ export default defineConfig({
           path: '/createImg/frequency',
           component:'./Frequency'
         },
+        {
+          name: '时空分布图',
+          path: '/createImg/Timespace',
+          component:'./TimeSpace'
+        },
       ],
     },
   ],
