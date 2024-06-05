@@ -80,10 +80,10 @@ const ColorScale = ({ title }: { title: string }) => {
     ctx.textBaseline = 'middle';
     ticks.forEach((tick) => {
       const y = axisScale(tick);
-      ctx.beginPath();
-      ctx.moveTo(padding + scaleWidth + 5, y);
-      ctx.lineTo(padding + scaleWidth + 10, y);
-      ctx.stroke();
+      // ctx.beginPath();
+      // ctx.moveTo(padding + scaleWidth, y);
+      // ctx.lineTo(padding + scaleWidth + 10, y);
+      // ctx.stroke();
       ctx.fillText(tick.toFixed(2), padding + scaleWidth + 15, y);
     });
   }, []);
