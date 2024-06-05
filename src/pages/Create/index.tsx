@@ -7,8 +7,7 @@ import { useForm } from 'antd/es/form/Form';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 // import ColorScale, { getColor } from './components/ColorScale';
-import ColorScale from '../TimeSpace/components/ColorScales';
-import { getColor } from '../TimeSpace/components/ColorScales';
+import ColorScale, { getColor } from './components/ColorScales';
 
 import CreateForm from './components/CreateForm';
 import Planar from './components/Planar';
@@ -263,7 +262,7 @@ const Create = () => {
                     eventList={eventList}
                     byMag={byMag}
                   />
-                  <ColorScale />
+                  <ColorScale title="微震震级(M)" />
                 </div>
               </Card>
             );
