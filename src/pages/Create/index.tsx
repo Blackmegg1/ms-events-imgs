@@ -262,7 +262,9 @@ const Create = () => {
                     eventList={eventList}
                     byMag={byMag}
                   />
-                  <ColorScale title="微震震级(M)" />
+                  <div style={{ maxHeight: '300px' }}>
+                    <ColorScale title="微震震级(M)" />
+                  </div>
                 </div>
               </Card>
             );
