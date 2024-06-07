@@ -115,7 +115,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
       }
     }
     setDescription(
-      `事件数最多的网格坐标为 (${maxX * divide}, ${state.maxy - maxY * divide}), 事件数为 ${maxCount}`,
+      `事件数最多的网格坐标为 (${((maxX * divide) / wRatio).toFixed(0)}, ${(state.maxy - (maxY * divide) / hRatio).toFixed(0)}), 事件数为 ${maxCount}`,
     );
 
     const gridCentersWithCount = [];
