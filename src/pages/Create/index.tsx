@@ -6,9 +6,7 @@ import { Button, Card, DatePicker, Form, Select, Space, message } from 'antd';
 import { useForm } from 'antd/es/form/Form';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-// import ColorScale, { getColor } from './components/ColorScale';
 import ColorScale, { getColor } from './components/ColorScales';
-
 import CreateForm from './components/CreateForm';
 import Planar from './components/Planar';
 

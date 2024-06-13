@@ -1,6 +1,6 @@
 import { Button, Card, Divider, message } from 'antd';
 import { createRef, useEffect, useState } from 'react';
-import ColorScale, { getColor } from './ColorScale';
+import ColorScale, { getColor } from './ColorScales';
 
 interface Iprops {
   key: string;
@@ -52,6 +52,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     maxx: 0,
     maxy: 0,
   });
+  const [maxCount, setMaxCount] = useState(0);
   const [exportData, setExportData] = useState<GridCenterData[]>([]);
   const [description, setDescription] = useState<string | undefined>(undefined);
 
@@ -101,21 +102,22 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     }
 
     // 找出事件数最多的网格及其坐标
-    let maxCount = 0;
+    let maxCountValue = 0;
     let maxX = -1;
     let maxY = -1;
     for (let y = 0; y < gridHeight; y++) {
       for (let x = 0; x < gridWidth; x++) {
         const count = gridCount[y][x];
-        if (count > maxCount) {
-          maxCount = count;
+        if (count > maxCountValue) {
+          maxCountValue = count;
           maxX = x;
           maxY = y;
         }
       }
     }
+    setMaxCount(maxCountValue);
     setDescription(
-      `事件数最多的网格坐标为 (${((maxX * divide) / wRatio).toFixed(0)}, ${(state.maxy - (maxY * divide) / hRatio).toFixed(0)}), 事件数为 ${maxCount}`,
+      `事件数最多的网格坐标为 (${((maxX * divide) / wRatio).toFixed(0)}, ${(state.maxy - (maxY * divide) / hRatio).toFixed(0)}), 事件数为 ${maxCountValue}`,
     );
 
     const gridCentersWithCount = [];
@@ -138,12 +140,13 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
           count,
         });
 
-        let color = getColor(count);
+        let color = getColor(count, maxCountValue);
+        const rgbValues = color.match(/\d+/g).map(Number);
         if (count === 0) {
           ctx.fillStyle = `rgba(255,255,255,0)`;
           ctx.fillRect(x * divide, y * divide, divide, divide);
         } else {
-          ctx.fillStyle = `rgba(${color?.red},${color?.green},${color?.blue},0.6)`;
+          ctx.fillStyle = `rgba(${rgbValues[0]}, ${rgbValues[1]}, ${rgbValues[2]}, 0.6)`;
           ctx.fillRect(x * divide, y * divide, divide, divide);
         }
       }
@@ -275,7 +278,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
         canvas?.removeEventListener('click', listener);
       });
     };
-  }, [state, img_base64, props, divide]);
+  }, [state, img_base64, props, divide, maxCount]);
 
   return (
     <Card
@@ -313,7 +316,9 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
           <Divider />
           {description ? <span>{description}</span> : null}
         </div>
-        <ColorScale />
+        <div style={{ maxHeight: '300px' }}>
+          <ColorScale title="微震次数" maxValue={maxCount} />
+        </div>
       </div>
     </Card>
   );
