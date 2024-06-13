@@ -94,7 +94,7 @@ const ColorScale = ({
     });
   }, [maxValue]);
 
-  return <canvas ref={canvasRef} width="150" height="300" />;
+  return <canvas ref={canvasRef} width="140px" height="300px" />;
 };
 
 export default ColorScale;

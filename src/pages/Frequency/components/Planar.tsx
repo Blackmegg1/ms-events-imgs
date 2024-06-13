@@ -72,8 +72,8 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     const wRatio = (cvs.width - left_margin) / state.width;
     const hRatio = (cvs.height - top_margin) / state.height;
 
-    const gridWidth = Math.ceil(cvs.width / divide); // 网格宽度(列数)
-    const gridHeight = Math.ceil(cvs.height / divide); // 网格高度(行数)
+    const gridWidth = Math.floor(cvs.width / divide); // 网格宽度(列数)
+    const gridHeight = Math.floor(cvs.height / divide); // 网格高度(行数)
     const gridCount = Array.from({ length: gridHeight }, () =>
       new Array(gridWidth).fill(0),
     ); // 初始化二维数组
@@ -92,10 +92,10 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
         (cvs.height - hRatio * (xy.y - state.miny) + top_margin) / divide,
       );
       // 有些事件不在底图区域内，直接略过
-      if (y < 0 || y > gridHeight) {
+      if (y < 0 || y >= gridHeight) {
         continue;
       }
-      if (x < 0 || x > gridWidth) {
+      if (x < 0 || x >= gridWidth) {
         continue;
       }
       gridCount[y][x]++;
@@ -316,7 +316,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
           <Divider />
           {description ? <span>{description}</span> : null}
         </div>
-        <div style={{ maxHeight: '300px' }}>
+        <div style={{ maxHeight: '300px', maxWidth: '140px' }}>
           <ColorScale title="微震次数" maxValue={maxCount} />
         </div>
       </div>
