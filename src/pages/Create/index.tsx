@@ -137,7 +137,7 @@ const Create = () => {
     });
     if (list) {
       const updatedList = list.map((e) => {
-        const color = +e.magnitude >= 0 ? getColor(+e.magnitude) : getColor(0);
+        const color = getColor(+e.magnitude);
         return { ...e, color }; // 添加color属性并返回新的对象
       });
       setEventList(updatedList); // 更新list
