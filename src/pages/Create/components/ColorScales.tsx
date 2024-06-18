@@ -3,20 +3,21 @@ import { useEffect, useRef } from 'react';
 
 export function getColor(val: number) {
   const colorScale = d3
-    .scaleLinear()
-    .domain([-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 3])
-    .range([
-      '#081cf0', // -2
-      '#2a63ff', // -1.5
-      '#5a9aff', // -1
-      '#88d4ff', // -0.5
-      '#c7e9b4', // 0
-      '#ced98c', // 0.5
-      '#e1c268', // 1
-      '#e6a65d', // 1.5
-      '#ea851a', // 2
-      '#ec0f08', // 3
-    ]);
+  .scaleLinear()
+  .domain([-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3])
+  .range([
+    '#0a0675', // 深蓝色
+    '#2008a8', // 较深的蓝色  
+    '#3107f0', // 蓝色
+    '#1f07f0', // 较深的蓝色
+    '#081cf0', // 深蓝色
+    '#22d3ae', // 浅绿色
+    '#68d220', // 绿色
+    '#c7aa1a', // 黄色
+    '#ea851a', // 橙色
+    '#e14e0f', // 深橙色
+    '#ec0f08'  // 深红色
+  ]);
   const color = colorScale(val);
   return color;
 }
@@ -33,21 +34,21 @@ const ColorScale = ({ title }: { title: string }) => {
     const scaleWidth = 30; // 色阶带宽度
     const titleHeight = 20; // 标题高度
     const colorScale = d3
-      .scaleLinear()
-      .domain([-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 3])
-      .range([
-        '#081cf0', // -2
-        '#2a63ff', // -1.5
-        '#5a9aff', // -1
-        '#88d4ff', // -0.5
-        '#c7e9b4', // 0
-        '#ced98c', // 0.5
-        '#e1c268', // 1
-        '#e6a65d', // 1.5
-        '#ea851a', // 2
-        '#ec0f08', // 3
-      ]);
-
+    .scaleLinear()
+    .domain([-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3])
+    .range([
+      '#0a0675', // 深蓝色
+      '#2008a8', // 较深的蓝色  
+      '#3107f0', // 蓝色
+      '#1f07f0', // 较深的蓝色
+      '#081cf0', // 深蓝色
+      '#22d3ae', // 浅绿色
+      '#68d220', // 绿色
+      '#c7aa1a', // 黄色
+      '#ea851a', // 橙色
+      '#e14e0f', // 深橙色
+      '#ec0f08'  // 深红色
+    ]);
     // 绘制标题
     ctx.font = '14px Arial';
     ctx.fillStyle = 'black';
