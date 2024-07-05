@@ -46,13 +46,29 @@ export default defineConfig({
         {
           name: '频次密度图',
           path: '/createImg/frequency',
-          component:'./Frequency'
+          component: './Frequency',
         },
         // {
         //   name: '时空分布图',
         //   path: '/createImg/Timespace',
         //   component:'./TimeSpace'
         // },
+      ],
+    },
+    {
+      name: '空间模型',
+      path: '/spaceModel',
+      routes: [
+        {
+          name: '模型参数',
+          path: '/spaceModel/parameter',
+          component: './SpaceModel',
+        },
+        {
+          name: '模型展示',
+          path: '/spaceModel/show',
+          component: './SpaceModel',
+        },
       ],
     },
   ],
