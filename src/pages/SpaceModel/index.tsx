@@ -89,6 +89,7 @@ const SpaceModel: React.FC = () => {
             >
               点位管理
             </Button>
+            <Button type="link">层位管理</Button>
             <Popconfirm
               title="确认删除该模型？"
               description="此操作不可逆"

@@ -1,5 +1,8 @@
-import { getPointList } from '@/services/point/PointController';
-import { Button, Drawer, Space, Table } from 'antd';
+import {
+  batchDeletePoints,
+  getPointList,
+} from '@/services/point/PointController';
+import { Button, Drawer, Popconfirm, Space, Table } from 'antd';
 import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
 import BatchImport from './BatchImport';
 
@@ -67,7 +70,21 @@ const PointManage: React.FC<PropsWithChildren<PointManageProps>> = (props) => {
           <Button type="primary" onClick={() => setModalVisible(true)}>
             批量导入
           </Button>
-          <Button danger>清空点位</Button>
+          <Popconfirm
+            title="确认删除该模型的所有点位？"
+            description="此操作不可逆"
+            onConfirm={async () => {
+              const res = await batchDeletePoints(currentRecord.model_id);
+              console.log(res);
+              fetchPointList();
+            }}
+            okText="是"
+            cancelText="否"
+          >
+            <Button danger>
+              清空点位
+            </Button>
+          </Popconfirm>
         </Space>
       }
     >

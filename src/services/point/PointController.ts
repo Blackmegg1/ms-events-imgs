@@ -18,3 +18,9 @@ export function batchAddPoint(formdata: any) {
     data: formdata,
   });
 }
+
+export function batchDeletePoints(model_id: Number) {
+  return request(`/api/point/batch-delete/${model_id}`, {
+    method: 'DELETE',
+  })
+}

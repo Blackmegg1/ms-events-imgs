@@ -67,7 +67,7 @@ export default defineConfig({
         {
           name: '模型展示',
           path: '/spaceModel/show',
-          component: './SpaceModel',
+          component: './ModelShow',
         },
       ],
     },

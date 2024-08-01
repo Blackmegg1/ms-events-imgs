@@ -33,6 +33,7 @@ const BatchImport: React.FC<PropsWithChildren<BatchImportProps>> = ({
       .catch((err) => {
         message.error(err.message);
       });
+    form.resetFields();
     onOk();
   };
 
