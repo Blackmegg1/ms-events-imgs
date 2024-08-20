@@ -1,4 +1,5 @@
 import { getEventList } from '@/services/event/EventController';
+import { getLayerList } from '@/services/layer/LayerController';
 import { getModelList } from '@/services/model/ModelController';
 import { getPointList } from '@/services/point/PointController';
 import { getProjectDist } from '@/services/project/ProjectController';
@@ -25,6 +26,14 @@ interface Events {
 }
 [];
 
+interface Layers {
+  layer_depth: number;
+  layer_color: string;
+  layer_name: string;
+  layer_seq: number;
+}
+[];
+
 const ModelShow = () => {
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -33,6 +42,7 @@ const ModelShow = () => {
   const [modelArr, setModelArr] = useState([]);
   const [points, setPoints] = useState([]);
   const [events, setEvents] = useState<Events | []>([]);
+  const [layers, setLayers] = useState<Layers | []>([]);
 
   const [form] = Form.useForm();
 
@@ -118,6 +128,8 @@ const ModelShow = () => {
                       messageApi.error('模型的基准点位少于3个！');
                       return;
                     }
+                    setPoints(points);
+
                     // 如果选择了事件时间段，则展示事件
                     if (params.timeRage?.[0] && params.timeRage?.[1]) {
                       const formattedTimeRange = params.timeRage?.map(
@@ -130,12 +142,15 @@ const ModelShow = () => {
                         timeEnd: formattedTimeRange?.[1] || null,
                         project_id: params.project_id || null,
                       });
-                      console.log(eventList);
-
                       setEvents(eventList);
                     }
-                    setPoints(points);
-                    console.log(params);
+
+                    const { list: layers } = await getLayerList({
+                      model_id: params.model_id,
+                    });
+                    if (layers.length > 0) {
+                      setLayers(layers);
+                    }
                   }}
                 >
                   成图
@@ -147,7 +162,7 @@ const ModelShow = () => {
       </Card>
       {points.length > 0 ? (
         <Card>
-          <Scene points={points} events={events} />
+          <Scene points={points} events={events} layers={layers} />
         </Card>
       ) : null}
       {contextHolder}

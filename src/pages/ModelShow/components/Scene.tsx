@@ -16,6 +16,14 @@ interface Events {
 }
 [];
 
+interface Layers {
+  layer_depth: number;
+  layer_color: string;
+  layer_name: string;
+  layer_seq: number;
+}
+[];
+
 interface SceneProps {
   points: {
     point_name: string;
@@ -24,10 +32,11 @@ interface SceneProps {
     point_z: number;
   }[];
   events: Events | [];
+  layers: Layers | [];
 }
 
 const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
-  const { points, events } = props;
+  const { points, events, layers } = props;
 
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -119,18 +128,20 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
       createPoints(vectorPoints, scene);
       // 增加工作面底部
       createTriangulatedSurface(vectorPoints, scene);
-      const layers = [
-        { name: '煤层', depth: 50, color: '#555555' }, // 煤层：黑色
-        { name: '砂岩', depth: 40, color: 'sandybrown' }, // 砂岩：沙褐色
-        { name: '泥岩', depth: 20, color: 'darkslategray' }, // 泥岩：深板岩灰色
-      ];
       // 增加分层地质
       layers.forEach((layer) => {
-        createSurface(vectorPoints, layer.depth, scene, layer.color);
+        createSurface(
+          vectorPoints,
+          layer.layer_depth,
+          scene,
+          layer.layer_color,
+        );
         vectorPoints = vectorPoints.map(
-          (point) => new THREE.Vector3(point.x, point.y, point.z + layer.depth),
+          (point) =>
+            new THREE.Vector3(point.x, point.y, point.z + layer.layer_depth),
         );
       });
+
       // 增加工作面顶部
       createTriangulatedSurface(vectorPoints, scene);
       // 增加微震事件
@@ -167,7 +178,7 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
         renderer.forceContextLoss();
       };
     }
-  }, [points]);
+  }, [points, layers]);
 
   return (
     <>

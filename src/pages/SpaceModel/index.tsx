@@ -4,6 +4,7 @@ import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { Button, Popconfirm, Space } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import CreateForm from './component/CreateForm';
+import LayerManage from './component/LayerManage';
 import PointManage from './component/PointManage';
 import UpdateForm from './component/UpdateForm';
 
@@ -13,7 +14,8 @@ const SpaceModel: React.FC = () => {
   const [currentData, setCurrentData] = useState<any>({});
   const [createModalVisible, handleCreateVisible] = useState(false);
   const [updateModalVisible, handleUpdateVisible] = useState(false);
-  const [pointDrawerVisible, handleDrawerVisible] = useState(false);
+  const [pointDrawerVisible, handlePointDrawerVisible] = useState(false);
+  const [layerDrawerVisible, handleLayerDrawerVisible] = useState(false);
 
   const tableRef = useRef();
   const formRef = useRef();
@@ -83,13 +85,21 @@ const SpaceModel: React.FC = () => {
             <Button
               onClick={() => {
                 setCurrentData(record);
-                handleDrawerVisible(true);
+                handlePointDrawerVisible(true);
               }}
               type="link"
             >
               点位管理
             </Button>
-            <Button type="link">层位管理</Button>
+            <Button
+              type="link"
+              onClick={() => {
+                setCurrentData(record);
+                handleLayerDrawerVisible(true);
+              }}
+            >
+              层位管理
+            </Button>
             <Popconfirm
               title="确认删除该模型？"
               description="此操作不可逆"
@@ -162,7 +172,14 @@ const SpaceModel: React.FC = () => {
       <PointManage
         drawerVisible={pointDrawerVisible}
         onCancel={() => {
-          handleDrawerVisible(false);
+          handlePointDrawerVisible(false);
+        }}
+        currentRecord={currentData}
+      />
+      <LayerManage
+        drawerVisible={layerDrawerVisible}
+        onCancel={() => {
+          handleLayerDrawerVisible(false);
         }}
         currentRecord={currentData}
       />

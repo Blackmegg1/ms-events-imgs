@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Delaunay } from 'd3-delaunay';
 
 // 创建环绕曲面
 export function createSurface(points, depth, scene, color = "0x00ff00") {
@@ -72,22 +73,21 @@ export function createTriangulatedSurface(points, scene) {
 
     // 创建顶点
     const vertices = [];
-    const center = new THREE.Vector3();
+    const pointsForDelaunay = [];
     points.forEach((point) => {
         vertices.push(point.x, point.y, point.z);
-        center.add(point);
+        pointsForDelaunay.push([point.x, point.y]);
     });
-    center.divideScalar(points.length);
+
+    // 使用 d3-delaunay 进行三角剖分
+    const delaunay = Delaunay.from(pointsForDelaunay);
+    const triangles = delaunay.triangles;
 
     // 创建面（三角形）
     const indices = [];
-    for (let i = 0; i < points.length - 1; i++) {
-        indices.push(i, i + 1, points.length);
+    for (let i = 0; i < triangles.length; i += 3) {
+        indices.push(triangles[i], triangles[i + 1], triangles[i + 2]);
     }
-    indices.push(points.length - 1, 0, points.length);
-
-    // 添加中心点
-    vertices.push(center.x, center.y, center.z);
 
     // 设置顶点和面
     surfaceGeometry.setIndex(indices);
@@ -99,16 +99,27 @@ export function createTriangulatedSurface(points, scene) {
     // 计算法线
     surfaceGeometry.computeVertexNormals();
 
+    // // 为每个三角形创建随机颜色
+    // const colors = [];
+    // for (let i = 0; i < indices.length; i += 3) {
+    //     const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+    //     for (let j = 0; j < 3; j++) {
+    //         colors.push(color.r, color.g, color.b);
+    //     }
+    // }
+
+    // // 设置颜色属性
+    // surfaceGeometry.setAttribute(
+    //     "color",
+    //     new THREE.Float32BufferAttribute(colors, 3)
+    // );
+
     // 创建材质
-    const surfaceMaterial = new THREE.MeshStandardMaterial({
-        color: "#2f343c",
+    const surfaceMaterial = new THREE.MeshPhongMaterial({
+        vertexColors: true,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.8,
-        // roughness: 0.7,  // 控制材质的光滑度
-        // metalness: 0.1,  // 控制材质的金属感
-        // transmission: 0.9, // 让材质允许光线穿过
-        // thickness: 0.1, // 模拟材质的厚度
     });
 
     // 创建网格
@@ -120,34 +131,34 @@ export function createTriangulatedSurface(points, scene) {
 
 // 标注基准点
 export function createPoints(points, scene) {
-    // 创建几何体
-    const pointsGeometry = new THREE.BufferGeometry();
+    const pointObjects = [];
 
-    // 将点坐标转换为 Float32Array
-    const positions = new Float32Array(
-        points.flatMap((point) => [point.x, point.y, point.z])
-    );
+    points.forEach((point) => {
+        // 为每个点创建一个单独的几何体
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute([point.x, point.y, point.z], 3));
 
-    // 设置顶点属性
-    pointsGeometry.setAttribute(
-        "position",
-        new THREE.BufferAttribute(positions, 3)
-    );
+        // 创建材质
+        const material = new THREE.PointsMaterial({
+            color: 0xff0000,
+            size: 10,
+            sizeAttenuation: false,
+        });
 
-    // 创建材质
-    const pointsMaterial = new THREE.PointsMaterial({
-        color: 0xff0000,
-        size: 10,
-        sizeAttenuation: false,
+        // 创建点对象
+        const pointObject = new THREE.Points(geometry, material);
+
+        // 添加到场景
+        scene.add(pointObject);
+
+        // 将点对象添加到数组
+        pointObjects.push(pointObject);
     });
 
-    // 创建点对象
-    const pointsObject = new THREE.Points(pointsGeometry, pointsMaterial);
-
-    // 添加到场景
-    scene.add(pointsObject);
+    return pointObjects;
 }
 
+// 创建事件球体
 export function createSphere(events, scene) {
     events.forEach(event => {
         const geometry = new THREE.SphereGeometry(6, 24, 16);
