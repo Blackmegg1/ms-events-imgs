@@ -67,7 +67,7 @@ export function createSurface(points, depth, scene, color = "0x00ff00") {
 }
 
 // 创建三角剖分面
-export function createTriangulatedSurface(points, scene) {
+export function createTriangulatedSurface(points, scene, color) {
     // 创建几何体
     const surfaceGeometry = new THREE.BufferGeometry();
 
@@ -99,27 +99,12 @@ export function createTriangulatedSurface(points, scene) {
     // 计算法线
     surfaceGeometry.computeVertexNormals();
 
-    // // 为每个三角形创建随机颜色
-    // const colors = [];
-    // for (let i = 0; i < indices.length; i += 3) {
-    //     const color = new THREE.Color(Math.random(), Math.random(), Math.random());
-    //     for (let j = 0; j < 3; j++) {
-    //         colors.push(color.r, color.g, color.b);
-    //     }
-    // }
-
-    // // 设置颜色属性
-    // surfaceGeometry.setAttribute(
-    //     "color",
-    //     new THREE.Float32BufferAttribute(colors, 3)
-    // );
-
     // 创建材质
     const surfaceMaterial = new THREE.MeshPhongMaterial({
-        vertexColors: true,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.3,
+        color: color
     });
 
     // 创建网格
@@ -127,6 +112,17 @@ export function createTriangulatedSurface(points, scene) {
 
     // 添加到场景
     scene.add(surfaceMesh);
+}
+
+// 构建一个完整地层，包含上下两个面和环绕曲面
+export function createLayer(points, depth, scene, color = "0x00ff00") {
+    createTriangulatedSurface(points, scene, color);
+    createSurface(points, depth, scene, color);
+    let topPoints = points.map(
+        (point) =>
+            new THREE.Vector3(point.x, point.y, point.z + depth),
+    );
+    createTriangulatedSurface(topPoints, scene, color);
 }
 
 // 标注基准点

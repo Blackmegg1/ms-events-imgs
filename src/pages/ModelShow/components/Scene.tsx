@@ -1,9 +1,4 @@
-import {
-  createPoints,
-  createSphere,
-  createSurface,
-  createTriangulatedSurface,
-} from '@/utils/threeUtils';
+import { createLayer, createSphere } from '@/utils/threeUtils';
 import { message } from 'antd';
 import { PropsWithChildren, useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -20,7 +15,7 @@ interface Layers {
   layer_depth: number;
   layer_color: string;
   layer_name: string;
-  layer_seq: number;
+  layer_distance: number;
 }
 [];
 
@@ -124,26 +119,16 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
         (point) =>
           new THREE.Vector3(point.point_x, point.point_y, point.point_z),
       );
-      // 增加基准点
-      createPoints(vectorPoints, scene);
-      // 增加工作面底部
-      createTriangulatedSurface(vectorPoints, scene);
+
       // 增加分层地质
       layers.forEach((layer) => {
-        createSurface(
-          vectorPoints,
-          layer.layer_depth,
-          scene,
-          layer.layer_color,
-        );
-        vectorPoints = vectorPoints.map(
+        let belowPoints = vectorPoints.map(
           (point) =>
-            new THREE.Vector3(point.x, point.y, point.z + layer.layer_depth),
+            new THREE.Vector3(point.x, point.y, point.z + layer.layer_distance),
         );
+        createLayer(belowPoints, layer.layer_depth, scene, layer.layer_color);
       });
 
-      // 增加工作面顶部
-      createTriangulatedSurface(vectorPoints, scene);
       // 增加微震事件
       createSphere(events, scene);
 

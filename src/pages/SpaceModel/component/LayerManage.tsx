@@ -109,9 +109,9 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
       key: 'layer_depth',
     },
     {
-      title: '序号',
-      dataIndex: 'layer_seq',
-      key: 'layer_seq',
+      title: '层距(m)',
+      dataIndex: 'layer_distance',
+      key: 'layer_distance',
     },
     {
       title: '颜色',
@@ -185,7 +185,11 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
           }}
         />
       </Form.Item>
-      <Form.Item name="layer_seq" label="序号（不填默认递增）">
+      <Form.Item
+        name="layer_distance"
+        label="层距（m）"
+        rules={[{ required: true, message: '请输入层距' }]}
+      >
         <InputNumber />
       </Form.Item>
     </Form>

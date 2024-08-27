@@ -30,7 +30,7 @@ interface Layers {
   layer_depth: number;
   layer_color: string;
   layer_name: string;
-  layer_seq: number;
+  layer_distance: number;
 }
 [];
 
