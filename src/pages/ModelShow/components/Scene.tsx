@@ -1,4 +1,4 @@
-import { createLayer, createSphere } from '@/utils/threeUtils';
+import { createGridLines, createLayer, createSphere } from '@/utils/threeUtils';
 import { message } from 'antd';
 import { PropsWithChildren, useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -72,8 +72,8 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
       containerRef.current.appendChild(renderer.domElement);
 
       // 创建坐标轴辅助对象
-      const axesHelper = new THREE.AxesHelper(5000);
-      scene.add(axesHelper);
+      // const axesHelper = new THREE.AxesHelper(5000);
+      // scene.add(axesHelper);
 
       // 调整摄像机位置
       let maxX = -Infinity,
@@ -90,6 +90,19 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
         minY = Math.min(minY, point.point_y);
         minZ = Math.min(minZ, point.point_z);
       });
+
+      // 创建并添加网格线
+      const gridLines = createGridLines(
+        maxX + 100,
+        minX,
+        maxY + 100,
+        minY,
+        maxZ + 150,
+        minZ - 100,
+        8,
+      );
+      scene.add(gridLines);
+
       // 计算场景中心点
       const centerX = (maxX + minX) / 2;
       const centerY = (maxY + minY) / 2;

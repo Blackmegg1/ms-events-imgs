@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'; // 正确导入 FontLoader
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'; // 导入 TextGeometry
+import fontJson from '@/assets/fonts/helvetiker_regular.typeface.json';
+
 import { Delaunay } from 'd3-delaunay';
 
 // 创建环绕曲面
@@ -103,7 +107,7 @@ export function createTriangulatedSurface(points, scene, color) {
     const surfaceMaterial = new THREE.MeshPhongMaterial({
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.3,
+        opacity: 0.4,
         color: color
     });
 
@@ -164,4 +168,114 @@ export function createSphere(events, scene) {
         sphere.position.set(event.loc_x, event.loc_y, event.loc_z);
         scene.add(sphere)
     })
+}
+
+// 创建文字刻度函数
+function createTextLabel(text, position, gridGroup, size = 10, color = 0x000000, rotation = false) {
+    const loader = new FontLoader();
+    const textMaterial = new THREE.MeshBasicMaterial({ color });
+    const font = loader.parse(fontJson)
+    if (font) {
+        const textGeometry = new TextGeometry(text, {
+            font: font,
+            size: size,
+            height: 0.1,
+        });
+        const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+        textMesh.position.copy(position);
+        if (rotation) {
+            textMesh.rotation.set(Math.PI / 2, 0, 0);
+        }
+        gridGroup.add(textMesh); // 将文字添加到传入的 gridGroup 中
+    }
+    else {
+        console.log("字体加载出错！")
+    }
+}
+
+export function createGridLines(maxX, minX, maxY, minY, maxZ, minZ, divisions = 10, fontMargin = 30) {
+    const gridGroup = new THREE.Group();
+
+    // 计算每个网格单元的大小
+    const cellSizeX = (maxX - minX) / divisions;
+    const cellSizeY = (maxY - minY) / divisions;
+    const cellSizeZ = (maxZ - minZ) / divisions;
+
+    // 为XY平面创建网格线
+    for (let i = 0; i <= divisions; i++) {
+        const x = minX + i * cellSizeX;
+        const y = minY + i * cellSizeY;
+
+        // 添加X方向的网格线
+        const lineGeometryX = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(x, minY, minZ),
+            new THREE.Vector3(x, maxY, minZ)
+        ]);
+        const lineX = new THREE.Line(lineGeometryX, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+        gridGroup.add(lineX);
+
+        // 为X方向网格线添加刻度
+        createTextLabel(x.toFixed(0), new THREE.Vector3(x, minY - fontMargin, minZ), gridGroup);
+
+        // 添加Y方向的网格线
+        const lineGeometryY = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(minX, y, minZ),
+            new THREE.Vector3(maxX, y, minZ)
+        ]);
+        const lineY = new THREE.Line(lineGeometryY, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+        gridGroup.add(lineY);
+
+        // 为Y方向网格线添加刻度
+        createTextLabel(y.toFixed(0), new THREE.Vector3(minX - fontMargin, y, minZ), gridGroup);
+    }
+
+    // 为XZ平面创建网格线
+    for (let i = 0; i <= divisions; i++) {
+        const x = minX + i * cellSizeX;
+        const z = minZ + i * cellSizeZ;
+
+        // 添加X方向的网格线
+        const lineGeometryX = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(x, maxY, minZ),
+            new THREE.Vector3(x, maxY, maxZ)
+        ]);
+        const lineX = new THREE.Line(lineGeometryX, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+        gridGroup.add(lineX);
+
+        // 添加Z方向的网格线
+        const lineGeometryZ = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(minX, maxY, z),
+            new THREE.Vector3(maxX, maxY, z)
+        ]);
+        const lineZ = new THREE.Line(lineGeometryZ, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+        gridGroup.add(lineZ);
+
+        // 为Z方向网格线添加刻度
+        createTextLabel(z.toFixed(0), new THREE.Vector3(minX, maxY, z), gridGroup, 10, 0x000000, true);
+    }
+
+    // 为YZ平面创建网格线
+    for (let i = 0; i <= divisions; i++) {
+        const y = minY + i * cellSizeY;
+        const z = minZ + i * cellSizeZ;
+
+        // 添加Y方向的网格线
+        const lineGeometryY = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(minX, y, minZ),
+            new THREE.Vector3(minX, y, maxZ)
+        ]);
+        const lineY = new THREE.Line(lineGeometryY, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+        gridGroup.add(lineY);
+
+        // 添加Z方向的网格线
+        const lineGeometryZ = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(minX, minY, z),
+            new THREE.Vector3(minX, maxY, z)
+        ]);
+        const lineZ = new THREE.Line(lineGeometryZ, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+        gridGroup.add(lineZ);
+
+    }
+
+    return gridGroup;
 }
