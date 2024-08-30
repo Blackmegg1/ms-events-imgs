@@ -1,8 +1,18 @@
 import { addEvent, getEventList } from '@/services/event/EventController';
 import { getImgList } from '@/services/imgmag/ImgmagController';
 import { getProjectDist } from '@/services/project/ProjectController';
+import { computerEvent } from '@/utils/pointSurfaceRegion';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
-import { Button, Card, DatePicker, Form, Select, Space, message } from 'antd';
+import {
+  Button,
+  Card,
+  DatePicker,
+  Form,
+  InputNumber,
+  Select,
+  Space,
+  message,
+} from 'antd';
 import { useForm } from 'antd/es/form/Form';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -124,11 +134,15 @@ const Create = () => {
     },
   ];
 
-  const getEvent = async (params: { timeRage: any[]; project_id: any }) => {
+  const getEvent = async (params: {
+    timeRage: any[];
+    project_id: any;
+    z_range: any[];
+  }) => {
     const formattedTimeRange = params.timeRage.map((date) =>
       dayjs(date).format('YYYY-MM-DD'),
     );
-    const { list } = await getEventList({
+    let { list } = await getEventList({
       pageSize: 999999,
       current: 1,
       timeBegin: formattedTimeRange[0] || null,
@@ -136,15 +150,35 @@ const Create = () => {
       project_id: params.project_id || null,
     });
     if (list) {
+      // 调用三维模型数据，对事件进行分层筛选
+      if (
+        Array.isArray(params.z_range) &&
+        params.z_range.length === 2 &&
+        typeof params.z_range[0] === 'number' &&
+        typeof params.z_range[1] === 'number' &&
+        !isNaN(params.z_range[0]) &&
+        !isNaN(params.z_range[1])
+      ) {
+        const filterList = await computerEvent(
+          params.project_id,
+          list,
+          params.z_range[0],
+          params.z_range[1],
+        );
+        list = filterList;
+        console.log('执行了分层筛选');
+      }
+
       const updatedList = list.map((e) => {
         const color = getColor(+e.magnitude);
         return { ...e, color }; // 添加color属性并返回新的对象
       });
       setEventList(updatedList); // 更新list
+
       if (list.length) {
-        message.success(`当前时间段共有${list.length}个微震事件`);
+        message.success(`共有${list.length}个微震事件`);
       } else {
-        message.error(`当前时间段未找到微震事件`);
+        message.error(`未找到微震事件`);
       }
     }
     return list;
@@ -172,6 +206,34 @@ const Create = () => {
     }
   };
 
+  const NumberRangeInput = ({ value = [], onChange }) => {
+    const [start, end] = value;
+
+    const triggerChange = (changedValue: any[]) => {
+      onChange?.([changedValue[0], changedValue[1]]);
+    };
+
+    const onStartChange = (newStart: any) => {
+      triggerChange([newStart, end]);
+    };
+
+    const onEndChange = (newEnd: any) => {
+      triggerChange([start, newEnd]);
+    };
+
+    return (
+      <Space>
+        <InputNumber
+          value={start}
+          onChange={onStartChange}
+          placeholder="最小值"
+        />
+        ~
+        <InputNumber value={end} onChange={onEndChange} placeholder="最大值" />
+      </Space>
+    );
+  };
+
   return (
     <PageContainer
       header={{
@@ -190,6 +252,9 @@ const Create = () => {
             </Form.Item>
             <Form.Item label="事件时间段" name="timeRage">
               <RangePicker />
+            </Form.Item>
+            <Form.Item label="层位切片" name="z_range">
+              <NumberRangeInput />
             </Form.Item>
             <Form.Item>
               <Space>

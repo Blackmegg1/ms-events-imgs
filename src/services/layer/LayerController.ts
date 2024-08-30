@@ -38,6 +38,7 @@ export function addLayer(data: {
 export function updateLayer(
   layer_id: number,
   data: {
+    id: number;
     model_id: number;
     layer_name: string;
     layer_depth: number;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import * as d3 from 'd3';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'; // 正确导入 FontLoader
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'; // 导入 TextGeometry
 import fontJson from '@/assets/fonts/helvetiker_regular.typeface.json';
@@ -104,7 +105,7 @@ export function createTriangulatedSurface(points, scene, color) {
     surfaceGeometry.computeVertexNormals();
 
     // 创建材质
-    const surfaceMaterial = new THREE.MeshPhongMaterial({
+    const surfaceMaterial = new THREE.MeshBasicMaterial({
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.4,
@@ -141,7 +142,7 @@ export function createPoints(points, scene) {
         // 创建材质
         const material = new THREE.PointsMaterial({
             color: 0xff0000,
-            size: 10,
+            size: 4,
             sizeAttenuation: false,
         });
 
@@ -158,15 +159,57 @@ export function createPoints(points, scene) {
     return pointObjects;
 }
 
+function getOpacity(magnitude) {
+    const normalizedMag = (magnitude + 2) / 5;
+    return 0.1 + normalizedMag * 0.9;
+}
+
+function getColor(val) {
+    const colorScale = d3
+        .scaleLinear()
+        .domain([-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3])
+        .range([
+            '#0a0675', // 深蓝色
+            '#2008a8', // 较深的蓝色  
+            '#3107f0', // 蓝色
+            '#1f07f0', // 较深的蓝色
+            '#081cf0', // 深蓝色
+            '#22d3ae', // 浅绿色
+            '#68d220', // 绿色
+            '#c7aa1a', // 黄色
+            '#ea851a', // 橙色
+            '#e14e0f', // 深橙色
+            '#ec0f08'  // 深红色
+        ]);
+    const color = colorScale(val);
+    return color;
+}
+
 // 创建事件球体
 export function createSphere(events, scene) {
     events.forEach(event => {
-        const geometry = new THREE.SphereGeometry(6, 24, 16);
-        const sphere = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({
-            color: (event.magnitude > 0.1) ? 'red' : 'blue',
-        }));
-        sphere.position.set(event.loc_x, event.loc_y, event.loc_z);
-        scene.add(sphere)
+        if (event.magnitude > 0) {
+            const radius = 3 + (event.magnitude * 3);
+            const geometry = new THREE.SphereGeometry(radius, 64, 64);
+
+            // 根据震级计算颜色和透明度
+            const colorScale = getColor(event.magnitude);
+            const opacity = getOpacity(event.magnitude);
+
+            const material = new THREE.MeshPhysicalMaterial({
+                color: colorScale,
+                metalness: 0.0,
+                roughness: 0.1,
+                transmission: 0.8,
+                thickness: 0.5,
+                transparent: true,
+                opacity: opacity
+            });
+
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.set(event.loc_x, event.loc_y, event.loc_z);
+            scene.add(sphere);
+        }
     })
 }
 
@@ -179,7 +222,7 @@ function createTextLabel(text, position, gridGroup, size = 10, color = 0x000000,
         const textGeometry = new TextGeometry(text, {
             font: font,
             size: size,
-            height: 0.1,
+            depth: 0.1,
         });
         const textMesh = new THREE.Mesh(textGeometry, textMaterial);
         textMesh.position.copy(position);
@@ -193,6 +236,7 @@ function createTextLabel(text, position, gridGroup, size = 10, color = 0x000000,
     }
 }
 
+// 创建网格线
 export function createGridLines(maxX, minX, maxY, minY, maxZ, minZ, divisions = 10, fontMargin = 30) {
     const gridGroup = new THREE.Group();
 

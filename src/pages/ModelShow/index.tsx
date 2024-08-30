@@ -7,8 +7,11 @@ import { PageContainer } from '@ant-design/pro-components';
 import { Button, Card, DatePicker, Form, message, Select, Space } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
+import * as THREE from 'three';
+
 import Scene from './components/Scene';
 
+import isPointInSurfaceRegion from '@/utils/pointSurfaceRegion';
 const { RangePicker } = DatePicker;
 
 interface Points {
@@ -69,6 +72,35 @@ const ModelShow = () => {
     }
     fetchDist();
   }, []);
+
+  // const computerEvent = (bottomZ, topZ) => {
+  //   if (events.length > 0 && points.length > 3) {
+  //     let bottomVectorPoints = points.map(
+  //       (point) =>
+  //         new THREE.Vector3(
+  //           point.point_x,
+  //           point.point_y,
+  //           point.point_z + bottomZ,
+  //         ),
+  //     );
+  //     let topVectorPoints = points.map(
+  //       (point) =>
+  //         new THREE.Vector3(point.point_x, point.point_y, point.point_z + topZ),
+  //     );
+
+  //     let eventVector = events.map((event) => {
+  //       return { x: event.loc_x, y: event.loc_y, z: event.loc_z };
+  //     });
+  //     let filterEvent = eventVector.filter((event) => {
+  //       return isPointInSurfaceRegion(
+  //         event,
+  //         bottomVectorPoints,
+  //         topVectorPoints,
+  //       );
+  //     });
+  //     console.log(filterEvent);
+  //   }
+  // };
 
   return (
     <PageContainer
@@ -155,6 +187,7 @@ const ModelShow = () => {
                 >
                   成图
                 </Button>
+                {/* <Button onClick={() => computerEvent(0, 30)}>计算</Button> */}
               </Space>
             </Form.Item>
           </Space>

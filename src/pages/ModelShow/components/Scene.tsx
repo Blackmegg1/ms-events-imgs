@@ -1,4 +1,9 @@
-import { createGridLines, createLayer, createSphere } from '@/utils/threeUtils';
+import {
+  createGridLines,
+  createLayer,
+  createPoints,
+  createSphere,
+} from '@/utils/threeUtils';
 import { message } from 'antd';
 import { PropsWithChildren, useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -46,6 +51,7 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
     if (containerRef.current) {
       // 创建场景
       const scene = new THREE.Scene();
+      scene.scale.z = 1.5;
       scene.background = new THREE.Color(0xffffff);
       // 创建相机
       const camera = new THREE.PerspectiveCamera(
@@ -70,10 +76,6 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
         containerRef.current.clientHeight,
       );
       containerRef.current.appendChild(renderer.domElement);
-
-      // 创建坐标轴辅助对象
-      // const axesHelper = new THREE.AxesHelper(5000);
-      // scene.add(axesHelper);
 
       // 调整摄像机位置
       let maxX = -Infinity,
@@ -132,6 +134,9 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
         (point) =>
           new THREE.Vector3(point.point_x, point.point_y, point.point_z),
       );
+
+      // 展示基准点
+      // createPoints(vectorPoints, scene);
 
       // 增加分层地质
       layers.forEach((layer) => {
