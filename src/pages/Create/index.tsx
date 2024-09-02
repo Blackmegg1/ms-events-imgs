@@ -139,7 +139,7 @@ const Create = () => {
     project_id: any;
     z_range: any[];
   }) => {
-    const formattedTimeRange = params.timeRage.map((date) =>
+    const formattedTimeRange = params.timeRage?.map((date) =>
       dayjs(date).format('YYYY-MM-DD'),
     );
     let { list } = await getEventList({
@@ -159,14 +159,18 @@ const Create = () => {
         !isNaN(params.z_range[0]) &&
         !isNaN(params.z_range[1])
       ) {
-        const filterList = await computerEvent(
-          params.project_id,
-          list,
-          params.z_range[0],
-          params.z_range[1],
-        );
-        list = filterList;
-        console.log('执行了分层筛选');
+        try {
+          const filterList = await computerEvent(
+            params.project_id,
+            list,
+            params.z_range[0],
+            params.z_range[1],
+          );
+          list = filterList;
+          console.log('执行了分层筛选');
+        } catch (error: any) {
+          message.warning(`未执行分层筛选：${error.message}`);
+        }
       }
 
       const updatedList = list.map((e) => {

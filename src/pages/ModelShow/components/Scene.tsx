@@ -1,9 +1,4 @@
-import {
-  createGridLines,
-  createLayer,
-  createPoints,
-  createSphere,
-} from '@/utils/threeUtils';
+import { createGridLines, createLayer, createSphere } from '@/utils/threeUtils';
 import { message } from 'antd';
 import { PropsWithChildren, useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -112,11 +107,14 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
 
       // 设置摄像机位置
       const offset = 400;
-      camera.position.set(centerX, minY - offset, centerZ + offset);
+      camera.position.set(centerX, minY - offset * 1.2, centerZ);
 
       // 创建一个位于场景上方的目标点
-      const targetY = maxY + offset;
-      const target = new THREE.Vector3(centerX, targetY, centerZ);
+      const target = new THREE.Vector3(
+        centerX,
+        centerY + offset * 2,
+        minZ - offset,
+      );
 
       // 让摄像机朝向目标点
       camera.lookAt(target);

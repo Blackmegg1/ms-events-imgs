@@ -76,43 +76,47 @@ function interpolateZ(x, y, triangle) {
 
 
 export async function computerEvent(project_id, events, bottomZ, topZ) {
-    const { list: modelList } = await getModelList({ project_id: project_id });
-    if (modelList.length < 1) {
-        // 抛出异常
-        return [];
-    }
-    const model_id = modelList.pop().model_id;
-    const { list: points } = await getPointList({ model_id: model_id });
-    if (points.length < 4) {
-        // 抛出异常
-        return [];
-    }
+    try {
+        const { list: modelList } = await getModelList({ project_id: project_id });
+        if (modelList.length < 1) {
+            throw new Error('未配置工作面模型！');
+        }
+        const model_id = modelList.pop().model_id;
+        const { list: points } = await getPointList({ model_id: model_id });
+        if (points.length < 4) {
+            throw new Error('模型基准点位过少！');
+        }
 
-    if (events.length > 0) {
-        let bottomVectorPoints = points.map(
-            (point) =>
-                new THREE.Vector3(
-                    point.point_x,
-                    point.point_y,
-                    point.point_z + bottomZ,
-                ),
-        );
-        let topVectorPoints = points.map(
-            (point) =>
-                new THREE.Vector3(point.point_x, point.point_y, point.point_z + topZ),
-        );
-
-        let eventVector = events.map((event) => {
-            return { x: event.loc_x, y: event.loc_y, z: event.loc_z, ...event };
-        });
-        let filterEvent = eventVector.filter((event) => {
-            return isPointInSurfaceRegion(
-                event,
-                bottomVectorPoints,
-                topVectorPoints,
+        if (events.length > 0) {
+            let bottomVectorPoints = points.map(
+                (point) =>
+                    new THREE.Vector3(
+                        point.point_x,
+                        point.point_y,
+                        point.point_z + bottomZ,
+                    ),
             );
-        });
-        console.log(filterEvent);
-        return filterEvent;
+            let topVectorPoints = points.map(
+                (point) =>
+                    new THREE.Vector3(point.point_x, point.point_y, point.point_z + topZ),
+            );
+
+            let eventVector = events.map((event) => {
+                return { x: event.loc_x, y: event.loc_y, z: event.loc_z, ...event };
+            });
+            let filterEvent = eventVector.filter((event) => {
+                return isPointInSurfaceRegion(
+                    event,
+                    bottomVectorPoints,
+                    topVectorPoints,
+                );
+            });
+            console.log(filterEvent);
+            return filterEvent;
+        }
+        return [];
+    } catch (error) {
+        console.error('事件分层切片出错:', error.message);
+        throw error; // 重新抛出错误，允许调用者进行进一步处理
     }
-};
+}
