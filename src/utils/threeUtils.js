@@ -4,6 +4,7 @@ import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'; // 正确
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'; // 导入 TextGeometry
 import fontJson from '@/assets/fonts/helvetiker_regular.typeface.json';
 
+import { getEData } from '@/services/eData/EDataController'
 import { Delaunay } from 'd3-delaunay';
 
 // 创建环绕曲面
@@ -164,6 +165,7 @@ function getOpacity(magnitude) {
     return 0.1 + normalizedMag * 0.9;
 }
 
+// 震级色标
 function getColor(val) {
     const colorScale = d3
         .scaleLinear()
@@ -184,6 +186,30 @@ function getColor(val) {
     const color = colorScale(val);
     return color;
 }
+
+// 频次色标
+function getFreqColor(val, maxValue) {
+    // 如果传入的最大值小于 10,则使用 0 到 10 作为域范围,否则使用 0 到最大值作为域范围
+    const clampedDomain = maxValue < 10 ? [0, 10] : [0, maxValue];
+
+    const colorScale = d3
+        .scaleLinear()
+        .domain(clampedDomain)
+        .range([
+            '#081cf0',
+            '#22d3ae',
+            '#68d220',
+            '#c7aa1a',
+            '#ea851a',
+            '#e14e0f',
+            '#ec0f08',
+        ]);
+
+    const colorRange = colorScale.range();
+    const color = d3.interpolateRgbBasis(colorRange)(val / clampedDomain[1]);
+
+    return color;
+};
 
 // 创建事件球体
 export function createSphere(events, scene) {
@@ -213,6 +239,79 @@ export function createSphere(events, scene) {
     })
 }
 
+// 创建频次网格体
+export function createDensityGrid(events, scene, gridSize = 10) {
+    // Step 1: Determine the spatial extent of events
+    const extent = {
+        minX: Math.min(...events.map(event => event.loc_x)),
+        maxX: Math.max(...events.map(event => event.loc_x)),
+        minY: Math.min(...events.map(event => event.loc_y)),
+        maxY: Math.max(...events.map(event => event.loc_y)),
+        minZ: Math.min(...events.map(event => event.loc_z)),
+        maxZ: Math.max(...events.map(event => event.loc_z))
+    };
+
+    // Step 2: Divide the region into a grid
+    const xRange = extent.maxX - extent.minX;
+    const yRange = extent.maxY - extent.minY;
+    const zRange = extent.maxZ - extent.minZ;
+
+    const xSteps = Math.ceil(xRange / gridSize);
+    const ySteps = Math.ceil(yRange / gridSize);
+    const zSteps = Math.ceil(zRange / gridSize);
+
+    // Step 3: Initialize a 3D grid to store event counts
+    const grid = Array.from({ length: xSteps }, () =>
+        Array.from({ length: ySteps }, () =>
+            Array.from({ length: zSteps }, () => 0)
+        )
+    );
+
+    // Step 4: Count events in each grid cell
+    events.forEach(event => {
+        const xIndex = Math.floor((event.loc_x - extent.minX) / gridSize);
+        const yIndex = Math.floor((event.loc_y - extent.minY) / gridSize);
+        const zIndex = Math.floor((event.loc_z - extent.minZ) / gridSize);
+        grid[xIndex][yIndex][zIndex]++;
+    });
+
+    // Step 5: Find the maximum event count
+    const maxCount = Math.max(...grid.flat(2));
+
+    // Step 6: Create and visualize the density meshes
+    for (let x = 0; x < xSteps; x++) {
+        for (let y = 0; y < ySteps; y++) {
+            for (let z = 0; z < zSteps; z++) {
+                const count = grid[x][y][z];
+                if (count > 0) {
+                    // Calculate position of the grid cell
+                    const centerX = extent.minX + (x + 0.5) * gridSize;
+                    const centerY = extent.minY + (y + 0.5) * gridSize;
+                    const centerZ = extent.minZ + (z + 0.5) * gridSize;
+
+                    // Determine color and opacity based on density
+                    const colorScale = getFreqColor(count, maxCount);
+                    const normalizedOpacity = 0.1 + (count / maxCount) * 0.9;
+
+                    // Create a cube or other mesh to represent density
+                    const geometry = new THREE.BoxGeometry(gridSize, gridSize, gridSize);
+                    const material = new THREE.MeshPhysicalMaterial({
+                        color: colorScale,
+                        transmission: 0.8,
+                        thickness: 0.5,
+                        transparent: true,
+                        opacity: normalizedOpacity
+                    });
+
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.position.set(centerX, centerY, centerZ);
+                    scene.add(mesh);
+                }
+            }
+        }
+    }
+}
+
 // 创建文字刻度函数
 function createTextLabel(text, position, gridGroup, size = 10, color = 0x000000, rotation = false) {
     const loader = new FontLoader();
@@ -237,7 +336,7 @@ function createTextLabel(text, position, gridGroup, size = 10, color = 0x000000,
 }
 
 // 创建网格线
-export function createGridLines(maxX, minX, maxY, minY, maxZ, minZ, divisions = 10, fontMargin = 30) {
+export function createGridLines(maxX, minX, maxY, minY, maxZ, minZ, divisions = 10, fontMargin = 30, showHalfGrid = true) {
     const gridGroup = new THREE.Group();
 
     // 计算每个网格单元的大小
@@ -251,26 +350,44 @@ export function createGridLines(maxX, minX, maxY, minY, maxZ, minZ, divisions = 
         const y = minY + i * cellSizeY;
 
         // 添加X方向的网格线
-        const lineGeometryX = new THREE.BufferGeometry().setFromPoints([
+        const lineGeometryXBottom = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(x, minY, minZ),
             new THREE.Vector3(x, maxY, minZ)
         ]);
-        const lineX = new THREE.Line(lineGeometryX, new THREE.LineBasicMaterial({ color: 0xcccccc }));
-        gridGroup.add(lineX);
+        const lineBottom = new THREE.Line(lineGeometryXBottom, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+        gridGroup.add(lineBottom);
 
         // 为X方向网格线添加刻度
         createTextLabel(x.toFixed(0), new THREE.Vector3(x, minY - fontMargin, minZ), gridGroup);
 
+        if (!showHalfGrid) {
+            const lineGeometryXTop = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(x, minY, maxZ),
+                new THREE.Vector3(x, maxY, maxZ)
+            ]);
+            const lineTop = new THREE.Line(lineGeometryXTop, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+            gridGroup.add(lineTop);
+        }
+
         // 添加Y方向的网格线
-        const lineGeometryY = new THREE.BufferGeometry().setFromPoints([
+        const lineGeometryYBottom = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(minX, y, minZ),
             new THREE.Vector3(maxX, y, minZ)
         ]);
-        const lineY = new THREE.Line(lineGeometryY, new THREE.LineBasicMaterial({ color: 0xcccccc }));
-        gridGroup.add(lineY);
+        const lineYBottom = new THREE.Line(lineGeometryYBottom, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+        gridGroup.add(lineYBottom);
 
         // 为Y方向网格线添加刻度
         createTextLabel(y.toFixed(0), new THREE.Vector3(minX - fontMargin, y, minZ), gridGroup);
+
+        if (!showHalfGrid) {
+            const lineGeometryYTop = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(minX, y, maxZ),
+                new THREE.Vector3(maxX, y, maxZ)
+            ]);
+            const lineYTop = new THREE.Line(lineGeometryYTop, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+            gridGroup.add(lineYTop);
+        }
     }
 
     // 为XZ平面创建网格线
@@ -279,23 +396,43 @@ export function createGridLines(maxX, minX, maxY, minY, maxZ, minZ, divisions = 
         const z = minZ + i * cellSizeZ;
 
         // 添加X方向的网格线
-        const lineGeometryX = new THREE.BufferGeometry().setFromPoints([
+        const lineGeometryXFront = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(x, maxY, minZ),
             new THREE.Vector3(x, maxY, maxZ)
+
         ]);
-        const lineX = new THREE.Line(lineGeometryX, new THREE.LineBasicMaterial({ color: 0xcccccc }));
-        gridGroup.add(lineX);
+        const lineXFront = new THREE.Line(lineGeometryXFront, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+        gridGroup.add(lineXFront);
+
+        if (!showHalfGrid) {
+            const lineGeometryXBack = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(x, minY, minZ),
+                new THREE.Vector3(x, minY, maxZ)
+            ]);
+            const lineXBack = new THREE.Line(lineGeometryXBack, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+            gridGroup.add(lineXBack);
+        }
 
         // 添加Z方向的网格线
-        const lineGeometryZ = new THREE.BufferGeometry().setFromPoints([
+        const lineGeometryZFront = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(minX, maxY, z),
             new THREE.Vector3(maxX, maxY, z)
+
         ]);
-        const lineZ = new THREE.Line(lineGeometryZ, new THREE.LineBasicMaterial({ color: 0xcccccc }));
-        gridGroup.add(lineZ);
+        const lineZFront = new THREE.Line(lineGeometryZFront, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+        gridGroup.add(lineZFront);
 
         // 为Z方向网格线添加刻度
-        createTextLabel(z.toFixed(0), new THREE.Vector3(minX, maxY, z), gridGroup, 10, 0x000000, true);
+        createTextLabel(z.toFixed(0), new THREE.Vector3(minX - fontMargin, maxY, z), gridGroup, 10, 0x000000, true);
+
+        if (!showHalfGrid) {
+            const lineGeometryZBack = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(minX, minY, z),
+                new THREE.Vector3(maxX, minY, z)
+            ]);
+            const lineZBack = new THREE.Line(lineGeometryZBack, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+            gridGroup.add(lineZBack);
+        }
     }
 
     // 为YZ平面创建网格线
@@ -304,22 +441,121 @@ export function createGridLines(maxX, minX, maxY, minY, maxZ, minZ, divisions = 
         const z = minZ + i * cellSizeZ;
 
         // 添加Y方向的网格线
-        const lineGeometryY = new THREE.BufferGeometry().setFromPoints([
+        const lineGeometryYLeft = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(minX, y, minZ),
             new THREE.Vector3(minX, y, maxZ)
         ]);
-        const lineY = new THREE.Line(lineGeometryY, new THREE.LineBasicMaterial({ color: 0xcccccc }));
-        gridGroup.add(lineY);
+        const lineYLeft = new THREE.Line(lineGeometryYLeft, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+        gridGroup.add(lineYLeft);
+
+        if (!showHalfGrid) {
+            const lineGeometryYRight = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(maxX, y, minZ),
+                new THREE.Vector3(maxX, y, maxZ)
+            ]);
+            const lineYRight = new THREE.Line(lineGeometryYRight, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+            gridGroup.add(lineYRight);
+        }
 
         // 添加Z方向的网格线
-        const lineGeometryZ = new THREE.BufferGeometry().setFromPoints([
+        const lineGeometryZLeft = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(minX, minY, z),
             new THREE.Vector3(minX, maxY, z)
         ]);
-        const lineZ = new THREE.Line(lineGeometryZ, new THREE.LineBasicMaterial({ color: 0xcccccc }));
-        gridGroup.add(lineZ);
+        const lineZLeft = new THREE.Line(lineGeometryZLeft, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+        gridGroup.add(lineZLeft);
 
+        if (!showHalfGrid) {
+            const lineGeometryZRight = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(maxX, minY, z),
+                new THREE.Vector3(maxX, maxY, z)
+            ]);
+            const lineZRight = new THREE.Line(lineGeometryZRight, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+            gridGroup.add(lineZRight);
+        }
     }
 
     return gridGroup;
+}
+
+// 根据视电阻率数据，创建三角剖分面
+export async function createEDataSurface(id, scene) {
+
+    const eDataJson = await getEData(id);
+    const points = eDataJson.chartData;
+
+    // 找到 p 值的最小值和最大值，用于归一化
+    const pValues = points.map(point => point[3]);
+    const minP = Math.min(...pValues);
+    const maxP = Math.max(...pValues);
+
+    // 定义颜色标度
+    const colorScale = d3.scaleLinear()
+        .domain([0, 0.015384615384615385, 0.025641025641025644, 0.15384615384615385, 0.23076923076923078, 0.38461538461538464, 0.5897435897435898, 0.7948717948717948, 1])
+        .range(["rgb(9,37,246)", "rgb(23,55,238)", "rgb(35,71,231)", "rgb(96,100,210)", "rgb(171,198,94)", "rgb(117,142,26)", "rgb(181,147,93)", "rgb(206,87,51)", "rgb(237,25,17)"]);
+
+
+    // 创建几何体
+    const surfaceGeometry = new THREE.BufferGeometry();
+
+    // 创建顶点和颜色数组
+    const vertices = [];
+    const colors = [];
+    const pointsForDelaunay = [];
+
+    points.forEach((point) => {
+        vertices.push(point[0], point[1], point[2]);
+        pointsForDelaunay.push([point[0], point[1]]);
+    });
+
+    // 使用 d3-delaunay 进行三角剖分
+    const delaunay = Delaunay.from(pointsForDelaunay);
+    const triangles = delaunay.triangles;
+
+    // 创建面（三角形）索引数组
+    const indices = [];
+    for (let i = 0; i < triangles.length; i += 3) {
+        indices.push(triangles[i], triangles[i + 1], triangles[i + 2]);
+
+        // 获取每个顶点的p值，归一化，并根据p值设置颜色
+        const p1 = (points[triangles[i]][3] - minP) / (maxP - minP);
+        const p2 = (points[triangles[i + 1]][3] - minP) / (maxP - minP);
+        const p3 = (points[triangles[i + 2]][3] - minP) / (maxP - minP);
+
+        const color1 = new THREE.Color(colorScale(p1));
+        const color2 = new THREE.Color(colorScale(p2));
+        const color3 = new THREE.Color(colorScale(p3));
+
+        colors.push(color1.r, color1.g, color1.b);
+        colors.push(color2.r, color2.g, color2.b);
+        colors.push(color3.r, color3.g, color3.b);
+    }
+
+    // 设置顶点、面索引和颜色
+    surfaceGeometry.setIndex(indices);
+    surfaceGeometry.setAttribute(
+        'position',
+        new THREE.Float32BufferAttribute(vertices, 3)
+    );
+    surfaceGeometry.setAttribute(
+        'color',
+        new THREE.Float32BufferAttribute(colors, 3)
+    );
+
+    // 计算法线
+    surfaceGeometry.computeVertexNormals();
+
+    // 创建材质（使用顶点颜色）
+    const surfaceMaterial = new THREE.MeshBasicMaterial({
+        vertexColors: true,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.8,
+    });
+
+    // 创建网格
+    const surfaceMesh = new THREE.Mesh(surfaceGeometry, surfaceMaterial);
+
+    // 添加到场景
+    scene.add(surfaceMesh);
 }

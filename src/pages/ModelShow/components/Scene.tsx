@@ -1,4 +1,9 @@
-import { createGridLines, createLayer, createSphere } from '@/utils/threeUtils';
+import {
+  createDensityGrid,
+  createGridLines,
+  createLayer,
+  createSphere,
+} from '@/utils/threeUtils';
 import { message } from 'antd';
 import { PropsWithChildren, useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -28,10 +33,11 @@ interface SceneProps {
   }[];
   events: Events | [];
   layers: Layers | [];
+  eventMode: Number;
 }
 
 const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
-  const { points, events, layers } = props;
+  const { points, events, layers, eventMode } = props;
 
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -97,6 +103,8 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
         maxZ + 150,
         minZ - 100,
         8,
+        30,
+        true,
       );
       scene.add(gridLines);
 
@@ -145,8 +153,18 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
         createLayer(belowPoints, layer.layer_depth, scene, layer.layer_color);
       });
 
-      // 增加微震事件
-      createSphere(events, scene);
+      if (eventMode === 1) {
+        // 增加微震事件频次密度图
+        createDensityGrid(events, scene, 20);
+      } else {
+        // 展示微震事件点
+        createSphere(events, scene);
+      }
+
+      // 增加电阻率切片
+      // createEDataSurface(5, scene);
+      // createEDataSurface(6, scene);
+      // createEDataSurface(7, scene);
 
       // 渲染场景
       const animate = () => {
@@ -179,13 +197,13 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
         renderer.forceContextLoss();
       };
     }
-  }, [points, layers]);
+  }, [points, layers, eventMode]);
 
   return (
     <>
       <div
         ref={containerRef}
-        style={{ height: '100%', width: '100%', minHeight: '60vh' }}
+        style={{ height: '100%', width: '100%', minHeight: '80vh' }}
       ></div>
       {contextHolder}
     </>
