@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { getModelList } from '@/services/model/ModelController';
 import { getPointList } from '@/services/point/PointController';
 
+// 计算传入的点位是否在两个曲面之间
 export default function isPointInSurfaceRegion(point, surface1Points, surface2Points) {
     // 使用d3-delaunay进行三角剖分
     const delaunay1 = Delaunay.from(surface1Points.map(p => [p.x, p.y]));

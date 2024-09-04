@@ -65,7 +65,7 @@ export function createSurface(points, depth, scene, color = "0x00ff00") {
         color: color,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.6
+        opacity: 0.4
     });
 
     const mesh = new THREE.Mesh(geometry, material);
@@ -109,8 +109,9 @@ export function createTriangulatedSurface(points, scene, color) {
     const surfaceMaterial = new THREE.MeshBasicMaterial({
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.4,
-        color: color
+        opacity: 0.2,
+        color: color,
+        depthTest: false,
     });
 
     // 创建网格
@@ -300,7 +301,7 @@ export function createDensityGrid(events, scene, gridSize = 10) {
                         transmission: 0.8,
                         thickness: 0.5,
                         transparent: true,
-                        opacity: normalizedOpacity
+                        opacity: normalizedOpacity,
                     });
 
                     const mesh = new THREE.Mesh(geometry, material);

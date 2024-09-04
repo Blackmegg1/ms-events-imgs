@@ -1,5 +1,6 @@
 import {
   createDensityGrid,
+  createEDataSurface,
   createGridLines,
   createLayer,
   createSphere,
