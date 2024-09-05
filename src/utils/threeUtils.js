@@ -273,7 +273,10 @@ export function createDensityGrid(events, scene, gridSize = 10) {
         const xIndex = Math.floor((event.loc_x - extent.minX) / gridSize);
         const yIndex = Math.floor((event.loc_y - extent.minY) / gridSize);
         const zIndex = Math.floor((event.loc_z - extent.minZ) / gridSize);
-        grid[xIndex][yIndex][zIndex]++;
+
+        if (xIndex < xSteps && yIndex < ySteps && zIndex < zSteps) {
+            grid[xIndex][yIndex][zIndex]++;
+        }
     });
 
     // Step 5: Find the maximum event count
@@ -481,25 +484,19 @@ export function createGridLines(maxX, minX, maxY, minY, maxZ, minZ, divisions = 
 
 // 根据视电阻率数据，创建三角剖分面
 export async function createEDataSurface(id, scene) {
-
     const eDataJson = await getEData(id);
     const points = eDataJson.chartData;
 
     // 找到 p 值的最小值和最大值，用于归一化
-    const pValues = points.map(point => point[3]);
-    const minP = Math.min(...pValues);
-    const maxP = Math.max(...pValues);
+    const minP = 0;
+    const maxP = 100;
 
     // 定义颜色标度
     const colorScale = d3.scaleLinear()
-        .domain([0, 0.015384615384615385, 0.025641025641025644, 0.15384615384615385, 0.23076923076923078, 0.38461538461538464, 0.5897435897435898, 0.7948717948717948, 1])
-        .range(["rgb(9,37,246)", "rgb(23,55,238)", "rgb(35,71,231)", "rgb(96,100,210)", "rgb(171,198,94)", "rgb(117,142,26)", "rgb(181,147,93)", "rgb(206,87,51)", "rgb(237,25,17)"]);
-
+        .domain([0, 0.15, 0.5, 1])
+        .range(["rgb(0,0,255)", "rgb(0,255,0)", "rgb(255,255,0)", "rgb(255,100,0)"]);
 
     // 创建几何体
-    const surfaceGeometry = new THREE.BufferGeometry();
-
-    // 创建顶点和颜色数组
     const vertices = [];
     const colors = [];
     const pointsForDelaunay = [];
@@ -513,50 +510,61 @@ export async function createEDataSurface(id, scene) {
     const delaunay = Delaunay.from(pointsForDelaunay);
     const triangles = delaunay.triangles;
 
-    // 创建面（三角形）索引数组
-    const indices = [];
+    // 创建单一的几何体来表示整个表面
+    const geometry = new THREE.BufferGeometry();
+    const allVertices = [];
+    const allColors = [];
+
+    // 遍历每个三角形，计算顶点和颜色
     for (let i = 0; i < triangles.length; i += 3) {
-        indices.push(triangles[i], triangles[i + 1], triangles[i + 2]);
+        const p1 = points[triangles[i]];
+        const p2 = points[triangles[i + 1]];
+        const p3 = points[triangles[i + 2]];
 
-        // 获取每个顶点的p值，归一化，并根据p值设置颜色
-        const p1 = (points[triangles[i]][3] - minP) / (maxP - minP);
-        const p2 = (points[triangles[i + 1]][3] - minP) / (maxP - minP);
-        const p3 = (points[triangles[i + 2]][3] - minP) / (maxP - minP);
+        // 添加顶点位置
+        allVertices.push(p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p3[0], p3[1], p3[2]);
 
-        const color1 = new THREE.Color(colorScale(p1));
-        const color2 = new THREE.Color(colorScale(p2));
-        const color3 = new THREE.Color(colorScale(p3));
+        // 计算 p 值的平均值
+        const avgP = ((p1[3] - minP) / (maxP - minP) + (p2[3] - minP) / (maxP - minP) + (p3[3] - minP) / (maxP - minP)) / 3;
 
-        colors.push(color1.r, color1.g, color1.b);
-        colors.push(color2.r, color2.g, color2.b);
-        colors.push(color3.r, color3.g, color3.b);
+        // 获取基于平均 p 值的颜色
+        const faceColor = new THREE.Color(colorScale(avgP));
+
+        // 为每个顶点设置颜色
+        allColors.push(faceColor.r, faceColor.g, faceColor.b);
+        allColors.push(faceColor.r, faceColor.g, faceColor.b);
+        allColors.push(faceColor.r, faceColor.g, faceColor.b);
     }
 
-    // 设置顶点、面索引和颜色
-    surfaceGeometry.setIndex(indices);
-    surfaceGeometry.setAttribute(
-        'position',
-        new THREE.Float32BufferAttribute(vertices, 3)
-    );
-    surfaceGeometry.setAttribute(
-        'color',
-        new THREE.Float32BufferAttribute(colors, 3)
-    );
+    // 将顶点和颜色添加到几何体
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(allVertices, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(allColors, 3));
 
-    // 计算法线
-    surfaceGeometry.computeVertexNormals();
-
-    // 创建材质（使用顶点颜色）
-    const surfaceMaterial = new THREE.MeshBasicMaterial({
+    // 使用顶点颜色创建材质
+    const material = new THREE.MeshBasicMaterial({
         vertexColors: true,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.8
     });
 
-    // 创建网格
-    const surfaceMesh = new THREE.Mesh(surfaceGeometry, surfaceMaterial);
+    // 创建单个三角形网格
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
 
-    // 添加到场景
-    scene.add(surfaceMesh);
+    // 为每个顶点添加红色标记
+    // const pointGeometry = new THREE.BufferGeometry();
+    // const pointVertices = new Float32Array(vertices.length);
+    // pointVertices.set(vertices);
+    // pointGeometry.setAttribute('position', new THREE.BufferAttribute(pointVertices, 3));
+
+    // const pointMaterial = new THREE.PointsMaterial({
+    //     color: 0xff0000, // 红色
+    //     size: 0.1 // 设置点的大小
+    // });
+
+    // const pointsMesh = new THREE.Points(pointGeometry, pointMaterial);
+    // scene.add(pointsMesh);
 }
+
+

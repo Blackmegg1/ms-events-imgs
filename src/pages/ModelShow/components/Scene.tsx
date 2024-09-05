@@ -1,6 +1,5 @@
 import {
   createDensityGrid,
-  createEDataSurface,
   createGridLines,
   createLayer,
   createSphere,
@@ -72,11 +71,12 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
       scene.add(light);
 
       // 创建渲染器
-      const renderer = new THREE.WebGLRenderer();
+      const renderer = new THREE.WebGLRenderer({ alpha: true });
       renderer.setSize(
         containerRef.current.clientWidth,
         containerRef.current.clientHeight,
       );
+      renderer.setClearAlpha(0.0);
       containerRef.current.appendChild(renderer.domElement);
 
       // 调整摄像机位置
