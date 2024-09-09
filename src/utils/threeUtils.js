@@ -215,28 +215,28 @@ function getFreqColor(val, maxValue) {
 // 创建事件球体
 export function createSphere(events, scene) {
     events.forEach(event => {
-        if (event.magnitude > 0) {
-            const radius = 3 + (event.magnitude * 3);
-            const geometry = new THREE.SphereGeometry(radius, 64, 64);
 
-            // 根据震级计算颜色和透明度
-            const colorScale = getColor(event.magnitude);
-            const opacity = getOpacity(event.magnitude);
+        const radius = 3 + (event.magnitude * 3);
+        const geometry = new THREE.SphereGeometry(radius, 64, 64);
 
-            const material = new THREE.MeshPhysicalMaterial({
-                color: colorScale,
-                metalness: 0.0,
-                roughness: 0.1,
-                transmission: 0.8,
-                thickness: 0.5,
-                transparent: true,
-                opacity: opacity
-            });
+        // 根据震级计算颜色和透明度
+        const colorScale = getColor(event.magnitude);
+        const opacity = getOpacity(event.magnitude);
 
-            const sphere = new THREE.Mesh(geometry, material);
-            sphere.position.set(event.loc_x, event.loc_y, event.loc_z);
-            scene.add(sphere);
-        }
+        const material = new THREE.MeshPhysicalMaterial({
+            color: colorScale,
+            metalness: 0.0,
+            roughness: 0.1,
+            transmission: 0.8,
+            thickness: 0.5,
+            transparent: true,
+            opacity: opacity
+        });
+
+        const sphere = new THREE.Mesh(geometry, material);
+        sphere.position.set(event.loc_x, event.loc_y, event.loc_z);
+        scene.add(sphere);
+
     })
 }
 
