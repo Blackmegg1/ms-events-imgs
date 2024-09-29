@@ -193,7 +193,7 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
       (point) => new THREE.Vector3(point.point_x, point.point_y, point.point_z),
     );
 
-    createPoints(vectorPoints, sceneRef.current);
+    // createPoints(vectorPoints, sceneRef.current);
 
     updateLayerData(sceneRef.current, layers, vectorPoints);
 
