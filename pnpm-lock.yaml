@@ -26,9 +26,6 @@ dependencies:
   dayjs:
     specifier: ^1.11.10
     version: 1.11.10
-  hull.js:
-    specifier: ^1.0.6
-    version: 1.0.6
   moment:
     specifier: ^2.30.1
     version: 2.30.1
@@ -6511,11 +6508,6 @@ packages:
       extend: 3.0.2
     transitivePeerDependencies:
       - supports-color
-    dev: false
-
-  /hull.js@1.0.6:
-    resolution: {integrity: sha512-TC7e9sHYOaCVms0sn2hN7buxnaGfcl9h5EPVoVX9DTPoMpqQiS9bf3tmGDgiNaMVHBD91RAvWjCxrJ5Jx8BI5A==}
-    deprecated: This package is not maintained anymore on npmjs.com, please use GitHub URL to fetch the latest version. See the package homepage for instructions.
     dev: false
 
   /human-signals@2.1.0:
