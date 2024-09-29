@@ -148,6 +148,11 @@ const ModelShow = () => {
                     type="primary"
                     onClick={async () => {
                       const params = form.getFieldsValue();
+
+                      if (!params.model_id) {
+                        message.error('没有选择模型！');
+                        return;
+                      }
                       const { list: points } = await getPointList({
                         model_id: params.model_id,
                       });

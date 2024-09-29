@@ -1,11 +1,11 @@
 import {
   createDensityGrid,
   createGridLines,
-  createLayer,
+  createPoints,
   createSphere,
+  updateLayerData,
 } from '@/utils/threeUtils';
-import { message } from 'antd';
-import { PropsWithChildren, useEffect, useRef } from 'react';
+import { PropsWithChildren, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
@@ -39,22 +39,114 @@ interface SceneProps {
 const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
   const { points, events, layers, eventMode } = props;
 
-  const [messageApi, contextHolder] = message.useMessage();
-
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const cameraRef = useRef<HTMLDivElement | null>(null);
-  const controlRef = useRef<HTMLDivElement | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const controlRef = useRef<OrbitControls | null>(null);
+  let animationFrameId: number;
+
+  const sceneData = useMemo(() => {
+    if (points.length < 3) return null;
+
+    let maxX = -Infinity,
+      maxY = -Infinity,
+      maxZ = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      minZ = Infinity;
+
+    points.forEach((point) => {
+      maxX = Math.max(maxX, point.point_x);
+      maxY = Math.max(maxY, point.point_y);
+      maxZ = Math.max(maxZ, point.point_z);
+      minX = Math.min(minX, point.point_x);
+      minY = Math.min(minY, point.point_y);
+      minZ = Math.min(minZ, point.point_z);
+    });
+
+    const centerX = (maxX + minX) / 2;
+    const centerY = (maxY + minY) / 2;
+    const centerZ = (maxZ + minZ) / 2;
+
+    const offset = 400;
+    const target = new THREE.Vector3(
+      centerX,
+      centerY + offset * 2,
+      minZ - offset,
+    );
+
+    return {
+      maxX,
+      maxY,
+      maxZ,
+      minX,
+      minY,
+      minZ,
+      centerX,
+      centerY,
+      centerZ,
+      target,
+      offset,
+    };
+  }, [points]);
+
+  function clearScene(scene: THREE.Scene) {
+    // 创建一个临时数组存储需要删除的对象
+    const objectsToRemove: THREE.Object3D[] = [];
+
+    // 收集需要删除的对象
+    scene.children.forEach((child) => {
+      if (child.name.startsWith('eDataSurface_')) {
+        return;
+      }
+
+      objectsToRemove.push(child);
+    });
+
+    // 删除收集到的对象
+    objectsToRemove.forEach((child) => {
+      if ((child as any).geometry) {
+        (child as any).geometry.dispose();
+      }
+      if ((child as any).material) {
+        if (Array.isArray((child as any).material)) {
+          (child as any).material.forEach((material: THREE.Material) =>
+            material.dispose(),
+          );
+        } else {
+          (child as any).material.dispose();
+        }
+      }
+      scene.remove(child);
+    });
+  }
 
   useEffect(() => {
-    if (points.length < 3) {
-      return;
+    if (!containerRef.current || !sceneData) return;
+
+    console.log('场景渲染');
+
+    const {
+      maxX,
+      maxY,
+      maxZ,
+      minX,
+      minY,
+      minZ,
+      centerX,
+      centerY,
+      centerZ,
+      target,
+      offset,
+    } = sceneData;
+
+    if (!sceneRef.current) {
+      sceneRef.current = new THREE.Scene();
     }
-    if (containerRef.current) {
-      // 创建场景
-      const scene = new THREE.Scene();
-      scene.scale.z = 1.5;
-      scene.background = new THREE.Color(0xffffff);
-      // 创建相机
+    sceneRef.current.scale.z = 1.2;
+
+    if (!cameraRef.current) {
       const camera = new THREE.PerspectiveCamera(
         75,
         window.innerWidth / window.innerHeight,
@@ -62,143 +154,72 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
         10000,
       );
       camera.up.set(0, 0, 1);
-
-      // 创建光源
-      const color = 0xffffff;
-      const intensity = 3;
-      const light = new THREE.DirectionalLight(color, intensity);
-      light.position.set(-1, 2, 4);
-      scene.add(light);
-
-      // 创建渲染器
-      const renderer = new THREE.WebGLRenderer({ alpha: true });
-      renderer.setSize(
-        containerRef.current.clientWidth,
-        containerRef.current.clientHeight,
-      );
-      renderer.setClearAlpha(0.0);
-      containerRef.current.appendChild(renderer.domElement);
-
-      // 调整摄像机位置
-      let maxX = -Infinity,
-        maxY = -Infinity,
-        maxZ = -Infinity;
-      let minX = Infinity,
-        minY = Infinity,
-        minZ = Infinity;
-      points.forEach((point) => {
-        maxX = Math.max(maxX, point.point_x);
-        maxY = Math.max(maxY, point.point_y);
-        maxZ = Math.max(maxZ, point.point_z);
-        minX = Math.min(minX, point.point_x);
-        minY = Math.min(minY, point.point_y);
-        minZ = Math.min(minZ, point.point_z);
-      });
-
-      // 创建并添加网格线
-      const gridLines = createGridLines(
-        maxX + 100,
-        minX,
-        maxY + 100,
-        minY,
-        maxZ + 150,
-        minZ - 100,
-        8,
-        30,
-        true,
-      );
-      scene.add(gridLines);
-
-      // 计算场景中心点
-      const centerX = (maxX + minX) / 2;
-      const centerY = (maxY + minY) / 2;
-      const centerZ = (maxZ + minZ) / 2;
-
-      // 设置摄像机位置
-      const offset = 400;
-      camera.position.set(centerX, minY - offset * 1.2, centerZ);
-
-      // 创建一个位于场景上方的目标点
-      const target = new THREE.Vector3(
-        centerX,
-        centerY + offset * 2,
-        minZ - offset,
-      );
-
-      // 让摄像机朝向目标点
+      camera.position.set(centerX + 100, minY - offset * 1.2, centerZ);
       camera.lookAt(target);
-
-      // 设置 OrbitControls
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.target.copy(target); // 设置 OrbitControls 的目标点
-      controls.update();
-
-      controlRef.current = controls;
       cameraRef.current = camera;
-
-      // 将数据转换为 Vector3 对象
-      let vectorPoints = points.map(
-        (point) =>
-          new THREE.Vector3(point.point_x, point.point_y, point.point_z),
-      );
-
-      // 展示基准点
-      // createPoints(vectorPoints, scene);
-
-      // 增加分层地质
-      layers.forEach((layer) => {
-        let belowPoints = vectorPoints.map(
-          (point) =>
-            new THREE.Vector3(point.x, point.y, point.z + layer.layer_distance),
-        );
-        createLayer(belowPoints, layer.layer_depth, scene, layer.layer_color);
-      });
-
-      if (eventMode === 1) {
-        // 增加微震事件频次密度图
-        createDensityGrid(events, scene, 20);
-      } else {
-        // 展示微震事件点
-        createSphere(events, scene);
-      }
-
-      // 增加电阻率切片
-      // createEDataSurface(5, scene);
-      // createEDataSurface(6, scene);
-      // createEDataSurface(7, scene);
-
-      // 渲染场景
-      const animate = () => {
-        if (resizeRendererToDisplaySize(renderer)) {
-          const canvas = renderer.domElement;
-          camera.aspect = canvas.clientWidth / canvas.clientHeight;
-          camera.updateProjectionMatrix();
-        }
-        requestAnimationFrame(animate);
-        controls.update(); // 在每一帧都更新控制器
-        renderer.render(scene, camera);
-      };
-
-      function resizeRendererToDisplaySize(renderer: THREE.WebGLRenderer) {
-        const canvas = renderer.domElement;
-        const width = canvas.clientWidth;
-        const height = canvas.clientHeight;
-        const needResize = canvas.width !== width || canvas.height !== height;
-        if (needResize) {
-          renderer.setSize(width, height, false);
-        }
-        return needResize;
-      }
-
-      animate();
-
-      // 当组件卸载时，停止动画循环
-      return () => {
-        renderer.domElement.remove();
-        renderer.forceContextLoss();
-      };
     }
-  }, [points, layers, eventMode]);
+
+    const renderer =
+      rendererRef.current || new THREE.WebGLRenderer({ alpha: true });
+    renderer.setClearAlpha(0.0);
+    renderer.setSize(
+      containerRef.current.clientWidth,
+      containerRef.current.clientHeight,
+    );
+    containerRef.current.appendChild(renderer.domElement);
+    rendererRef.current = renderer;
+
+    const gridLines = createGridLines(
+      maxX + 100,
+      minX,
+      maxY + 100,
+      minY,
+      maxZ + 150,
+      minZ - 100,
+      8,
+      30,
+      true,
+    );
+    sceneRef.current.add(gridLines);
+
+    const controls =
+      controlRef.current ||
+      new OrbitControls(cameraRef.current!, renderer.domElement);
+    controls.target.copy(target);
+    controls.update();
+    controlRef.current = controls;
+
+    const vectorPoints = points.map(
+      (point) => new THREE.Vector3(point.point_x, point.point_y, point.point_z),
+    );
+
+    createPoints(vectorPoints, sceneRef.current);
+
+    updateLayerData(sceneRef.current, layers, vectorPoints);
+
+    if (eventMode === 1) {
+      createDensityGrid(events, sceneRef.current, 20, [1, 1000]);
+    } else {
+      createSphere(events, sceneRef.current, renderer, cameraRef.current!);
+    }
+
+    const animate = () => {
+      console.log('动画更新');
+      animationFrameId = requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(sceneRef.current!, cameraRef.current!);
+    };
+
+    animate();
+
+    return () => {
+      console.log('组件卸载');
+      cancelAnimationFrame(animationFrameId);
+      clearScene(sceneRef.current!);
+      renderer.dispose();
+      renderer.domElement.remove();
+    };
+  }, [points, layers, events, eventMode]);
 
   return (
     <>
@@ -206,7 +227,6 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
         ref={containerRef}
         style={{ height: '100%', width: '100%', minHeight: '80vh' }}
       ></div>
-      {contextHolder}
     </>
   );
 };

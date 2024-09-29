@@ -3,17 +3,25 @@ import * as d3 from 'd3';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'; // 正确导入 FontLoader
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'; // 导入 TextGeometry
 import fontJson from '@/assets/fonts/helvetiker_regular.typeface.json';
-
+import chineseFontJson from '@/assets/fonts/STXingkai_Regular.json'
 import { getEData } from '@/services/eData/EDataController'
 import { Delaunay } from 'd3-delaunay';
 
 // 创建环绕曲面
 export function createSurface(points, depth, scene, color = "0x00ff00") {
-    // 将数据转换为 Vector3 对象
-    const vectorPoints = points.map(
-        (point) => new THREE.Vector3(point.x, point.y, point.z)
+
+    const points2D = points.map(point => [point.x, point.y]);
+
+    // 创建Delaunay对象并获取凸包
+    const delaunay = Delaunay.from(points2D);
+    const hullIndices = delaunay.hull;
+
+    // 根据凸包索引创建新的点数组，并直接创建 THREE.Vector3 对象
+    const vectorPoints = Array.from(hullIndices).map(index =>
+        new THREE.Vector3(points[index].x, points[index].y, points[index].z)
     );
 
+    console.log(vectorPoints, 'vectorPoints');
     // 添加第一个点到数组末尾以闭合曲线
     vectorPoints.push(vectorPoints[0].clone());
 
@@ -69,7 +77,7 @@ export function createSurface(points, depth, scene, color = "0x00ff00") {
     });
 
     const mesh = new THREE.Mesh(geometry, material);
-    scene.add(mesh);
+    return mesh;
 }
 
 // 创建三角剖分面
@@ -118,7 +126,7 @@ export function createTriangulatedSurface(points, scene, color) {
     const surfaceMesh = new THREE.Mesh(surfaceGeometry, surfaceMaterial);
 
     // 添加到场景
-    scene.add(surfaceMesh);
+    return surfaceMesh
 }
 
 // 构建一个完整地层，包含上下两个面和环绕曲面
@@ -213,35 +221,81 @@ function getFreqColor(val, maxValue) {
 };
 
 // 创建事件球体
-export function createSphere(events, scene) {
+export function createSphere(events, scene, renderer, camera) {
+    const spheres = [];
+
     events.forEach(event => {
+        if (event.magnitude > 0) {
+            const radius = 3 + (event.magnitude * 3);
+            const geometry = new THREE.SphereGeometry(radius, 64, 64);
 
-        const radius = 3 + (event.magnitude * 3);
-        const geometry = new THREE.SphereGeometry(radius, 64, 64);
+            const colorScale = getColor(event.magnitude);
+            const opacity = getOpacity(event.magnitude);
 
-        // 根据震级计算颜色和透明度
-        const colorScale = getColor(event.magnitude);
-        const opacity = getOpacity(event.magnitude);
+            const material = new THREE.MeshPhysicalMaterial({
+                color: colorScale,
+                metalness: 0.0,
+                roughness: 0.1,
+                transmission: 0.8,
+                thickness: 0.5,
+                transparent: true,
+                opacity: opacity
+            });
 
-        const material = new THREE.MeshPhysicalMaterial({
-            color: colorScale,
-            metalness: 0.0,
-            roughness: 0.1,
-            transmission: 0.8,
-            thickness: 0.5,
-            transparent: true,
-            opacity: opacity
-        });
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.set(event.loc_x, event.loc_y, event.loc_z);
+            sphere.userData = { x: event.loc_x, y: event.loc_y, z: event.loc_z, magnitude: event.magnitude, energy: event.energy };
+            scene.add(sphere);
+            spheres.push(sphere);
+        }
+    });
 
-        const sphere = new THREE.Mesh(geometry, material);
-        sphere.position.set(event.loc_x, event.loc_y, event.loc_z);
-        scene.add(sphere);
+    // 初始化 Raycaster 和鼠标位置
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
 
-    })
+    // 创建悬浮窗
+    const tooltip = document.createElement('div');
+    tooltip.style.position = 'absolute';
+    tooltip.style.padding = '5px';
+    tooltip.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    tooltip.style.color = 'white';
+    tooltip.style.borderRadius = '4px';
+    tooltip.style.display = 'none'; // 初始隐藏
+    document.body.appendChild(tooltip);
+
+    // 鼠标移动事件
+    renderer.domElement.addEventListener('mousemove', (event) => {
+        // 获取 renderer DOM 元素的尺寸
+        const rect = renderer.domElement.getBoundingClientRect();
+
+        // 将鼠标位置转化为标准化设备坐标（NDC）
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        // 使用 Raycaster 设置从相机出发的光线
+        raycaster.setFromCamera(mouse, camera);
+
+        // 检测与球体的相交
+        const intersects = raycaster.intersectObjects(spheres);
+
+        if (intersects.length > 0) {
+            const intersected = intersects[0].object;
+            const { x, y, z, magnitude, energy } = intersected.userData;
+
+            // 更新悬浮窗内容和位置
+            tooltip.innerHTML = `X: ${x.toFixed(2)}米<br>Y: ${y.toFixed(2)}米<br>Z: ${z.toFixed(2)}米<br>震级: ${magnitude.toFixed(1)}M<br>能量: ${energy.toFixed(2)}J`;
+            tooltip.style.left = `${event.clientX + 10}px`;
+            tooltip.style.top = `${event.clientY + 10}px`;
+            tooltip.style.display = 'block';
+        } else {
+            tooltip.style.display = 'none';
+        }
+    });
 }
 
 // 创建频次网格体
-export function createDensityGrid(events, scene, gridSize = 10) {
+export function createDensityGrid(events, scene, gridSize = 10, gridFilter = [1, 1000]) {
     // Step 1: Determine the spatial extent of events
     const extent = {
         minX: Math.min(...events.map(event => event.loc_x)),
@@ -278,7 +332,6 @@ export function createDensityGrid(events, scene, gridSize = 10) {
             grid[xIndex][yIndex][zIndex]++;
         }
     });
-
     // Step 5: Find the maximum event count
     const maxCount = Math.max(...grid.flat(2));
 
@@ -287,7 +340,7 @@ export function createDensityGrid(events, scene, gridSize = 10) {
         for (let y = 0; y < ySteps; y++) {
             for (let z = 0; z < zSteps; z++) {
                 const count = grid[x][y][z];
-                if (count > 0) {
+                if (count >= gridFilter[0] && count <= gridFilter[1]) {
                     // Calculate position of the grid cell
                     const centerX = extent.minX + (x + 0.5) * gridSize;
                     const centerY = extent.minY + (y + 0.5) * gridSize;
@@ -295,7 +348,7 @@ export function createDensityGrid(events, scene, gridSize = 10) {
 
                     // Determine color and opacity based on density
                     const colorScale = getFreqColor(count, maxCount);
-                    const normalizedOpacity = 0.1 + (count / maxCount) * 0.9;
+                    const normalizedOpacity = 0.2 + (count / maxCount) * 0.8;
 
                     // Create a cube or other mesh to represent density
                     const geometry = new THREE.BoxGeometry(gridSize, gridSize, gridSize);
@@ -317,25 +370,38 @@ export function createDensityGrid(events, scene, gridSize = 10) {
 }
 
 // 创建文字刻度函数
-function createTextLabel(text, position, gridGroup, size = 10, color = 0x000000, rotation = false) {
+function createTextLabel(text, position, gridGroup, size = 10, color = 0x000000, rotation = false, isChinese = false) {
     const loader = new FontLoader();
     const textMaterial = new THREE.MeshBasicMaterial({ color });
-    const font = loader.parse(fontJson)
+    const font = loader.parse(isChinese ? chineseFontJson : fontJson); // 加载不同字体
+
     if (font) {
         const textGeometry = new TextGeometry(text, {
             font: font,
             size: size,
-            depth: 0.1,
+            height: 0.1, // 深度
         });
+
+        textGeometry.computeBoundingBox(); // 计算边界框
+        const boundingBox = textGeometry.boundingBox;
+        const textLength = boundingBox.max.x - boundingBox.min.x; // 获取文本的宽度
+
         const textMesh = new THREE.Mesh(textGeometry, textMaterial);
         textMesh.position.copy(position);
+
+        // 如果是中文文本，根据宽度调整位置
+        if (isChinese) {
+            textMesh.position.x -= textLength + 5; // 将文本水平居中显示
+        }
+
+        // 根据需要旋转文本
         if (rotation) {
             textMesh.rotation.set(Math.PI / 2, 0, 0);
         }
+
         gridGroup.add(textMesh); // 将文字添加到传入的 gridGroup 中
-    }
-    else {
-        console.log("字体加载出错！")
+    } else {
+        console.log("字体加载出错！");
     }
 }
 
@@ -482,9 +548,23 @@ export function createGridLines(maxX, minX, maxY, minY, maxZ, minZ, divisions = 
     return gridGroup;
 }
 
+// 创建层位名称标注
+export function createLayerNames(layers, minX, minY, centerZ, scene) {
+    const gridGroup = new THREE.Group();
+    layers.forEach(layer => {
+        console.log(layer.layer_name)
+        createTextLabel(layer.layer_name, new THREE.Vector3(minX, minY, centerZ + layer.layer_distance), gridGroup, 12, 0x000000, true, true)
+    })
+    scene.add(gridGroup);
+}
+
 // 根据视电阻率数据，创建三角剖分面
-export async function createEDataSurface(id, scene) {
-    const eDataJson = await getEData(id);
+export async function createEDataSurface(
+    height,
+    eData,
+    scene
+) {
+    const eDataJson = (await getEData(height, eData)).data;
     const points = eDataJson.chartData;
 
     // 找到 p 值的最小值和最大值，用于归一化
@@ -492,9 +572,15 @@ export async function createEDataSurface(id, scene) {
     const maxP = 100;
 
     // 定义颜色标度
-    const colorScale = d3.scaleLinear()
-        .domain([0, 0.15, 0.5, 1])
+    const colorScaleTop = d3
+        .scaleLinear()
+        .domain([0, 0.2, 0.5, 1])
         .range(["rgb(0,0,255)", "rgb(0,255,0)", "rgb(255,255,0)", "rgb(255,100,0)"]);
+
+    const colorScaleBottom = d3
+        .scaleLinear()
+        .domain([0, 0.03, 0.1, 1])
+        .range(["rgb(0,255,0)", "rgb(200,255,0)", "rgb(255,255,0)", "rgb(255,100,0)"]);
 
     // 创建几何体
     const vertices = [];
@@ -522,13 +608,31 @@ export async function createEDataSurface(id, scene) {
         const p3 = points[triangles[i + 2]];
 
         // 添加顶点位置
-        allVertices.push(p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p3[0], p3[1], p3[2]);
+        allVertices.push(
+            p1[0],
+            p1[1],
+            p1[2],
+            p2[0],
+            p2[1],
+            p2[2],
+            p3[0],
+            p3[1],
+            p3[2]
+        );
 
         // 计算 p 值的平均值
-        const avgP = ((p1[3] - minP) / (maxP - minP) + (p2[3] - minP) / (maxP - minP) + (p3[3] - minP) / (maxP - minP)) / 3;
+        const avgP =
+            ((p1[3] - minP) / (maxP - minP) +
+                (p2[3] - minP) / (maxP - minP) +
+                (p3[3] - minP) / (maxP - minP)) /
+            3;
 
         // 获取基于平均 p 值的颜色
-        const faceColor = new THREE.Color(colorScale(avgP));
+        const faceColor = new THREE.Color(
+            height === 6 || height === 12
+                ? colorScaleTop(avgP)
+                : colorScaleBottom(avgP)
+        );
 
         // 为每个顶点设置颜色
         allColors.push(faceColor.r, faceColor.g, faceColor.b);
@@ -537,34 +641,220 @@ export async function createEDataSurface(id, scene) {
     }
 
     // 将顶点和颜色添加到几何体
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(allVertices, 3));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(allColors, 3));
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(allVertices, 3));
+    geometry.setAttribute("color", new THREE.Float32BufferAttribute(allColors, 3));
 
     // 使用顶点颜色创建材质
     const material = new THREE.MeshBasicMaterial({
         vertexColors: true,
         side: THREE.DoubleSide,
+        depthTest: false,
         transparent: true,
-        opacity: 0.8
+        opacity: 0.9,
     });
 
     // 创建单个三角形网格
     const mesh = new THREE.Mesh(geometry, material);
+
+    // 为 mesh 增加唯一的名称
+    mesh.name = `eDataSurface_${height}`;
+
+    // 将网格添加到场景中
     scene.add(mesh);
-
-    // 为每个顶点添加红色标记
-    // const pointGeometry = new THREE.BufferGeometry();
-    // const pointVertices = new Float32Array(vertices.length);
-    // pointVertices.set(vertices);
-    // pointGeometry.setAttribute('position', new THREE.BufferAttribute(pointVertices, 3));
-
-    // const pointMaterial = new THREE.PointsMaterial({
-    //     color: 0xff0000, // 红色
-    //     size: 0.1 // 设置点的大小
-    // });
-
-    // const pointsMesh = new THREE.Points(pointGeometry, pointMaterial);
-    // scene.add(pointsMesh);
 }
 
+// 更新视电阻率平面
+export async function updateEDataSurface(
+    height,
+    eData,
+    scene
+) {
+    const eDataJson = (await getEData(height, eData)).data;
+    const points = eDataJson.chartData;
 
+    // 找到 p 值的最小值和最大值，用于归一化
+    const minP = 0;
+    const maxP = 100;
+
+    // 定义颜色标度
+    const colorScaleTop = d3
+        .scaleLinear()
+        .domain([0, 0.2, 0.5, 1])
+        .range(["rgb(0,0,255)", "rgb(0,255,0)", "rgb(255,255,0)", "rgb(255,100,0)"]);
+
+    const colorScaleBottom = d3
+        .scaleLinear()
+        .domain([0, 0.03, 0.1, 1])
+        .range(["rgb(0,255,0)", "rgb(200,255,0)", "rgb(255,255,0)", "rgb(255,100,0)"]);
+
+    // 查找现有的表面网格
+    const mesh = scene.getObjectByName(`eDataSurface_${height}`);
+
+    // 如果网格不存在，创建新的
+    if (!mesh) {
+        createEDataSurface(height, eData, scene);
+        return;
+    }
+
+    // 计算新几何体的顶点和颜色
+    const vertices = [];
+    const colors = [];
+    const pointsForDelaunay = [];
+
+    points.forEach((point) => {
+        vertices.push(point[0], point[1], point[2]);
+        pointsForDelaunay.push([point[0], point[1]]);
+    });
+
+    // 使用 d3-delaunay 进行三角剖分
+    const delaunay = Delaunay.from(pointsForDelaunay);
+    const triangles = delaunay.triangles;
+
+    const allVertices = [];
+    const allColors = [];
+
+    // 遍历每个三角形，计算顶点和颜色
+    for (let i = 0; i < triangles.length; i += 3) {
+        const p1 = points[triangles[i]];
+        const p2 = points[triangles[i + 1]];
+        const p3 = points[triangles[i + 2]];
+
+        // 添加顶点位置
+        allVertices.push(
+            p1[0],
+            p1[1],
+            p1[2],
+            p2[0],
+            p2[1],
+            p2[2],
+            p3[0],
+            p3[1],
+            p3[2]
+        );
+
+        // 计算 p 值的平均值
+        const avgP =
+            ((p1[3] - minP) / (maxP - minP) +
+                (p2[3] - minP) / (maxP - minP) +
+                (p3[3] - minP) / (maxP - minP)) /
+            3;
+
+        // 获取基于平均 p 值的颜色
+        const faceColor = new THREE.Color(
+            height === 6 || height === 12
+                ? colorScaleTop(avgP)
+                : colorScaleBottom(avgP)
+        );
+
+        // 为每个顶点设置颜色
+        allColors.push(faceColor.r, faceColor.g, faceColor.b);
+        allColors.push(faceColor.r, faceColor.g, faceColor.b);
+        allColors.push(faceColor.r, faceColor.g, faceColor.b);
+    }
+
+    // 更新现有几何体的数据
+    const geometry = mesh.geometry;
+
+    // 更新顶点数据
+    geometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(allVertices, 3)
+    );
+    geometry.attributes.position.needsUpdate = true;
+
+    // 更新颜色数据
+    geometry.setAttribute("color", new THREE.Float32BufferAttribute(allColors, 3));
+    geometry.attributes.color.needsUpdate = true;
+}
+
+// 更新地层
+export function updateLayerData(scene, layers, points) {
+    // 查找场景中的现有图层组
+    let layerGroup = scene.getObjectByName("layerGroup");
+
+    // 如果没有找到，创建一个新的组
+    if (!layerGroup) {
+        layerGroup = new THREE.Group();
+        layerGroup.name = "layerGroup";
+        scene.add(layerGroup);
+    }
+
+    layers.forEach((layer, index) => {
+        const { layer_distance, layer_depth, layer_color } = layer;
+        const color = layer_color || "0x00ff00";
+
+        let belowPoints = points.map(
+            (point) =>
+                new THREE.Vector3(
+                    point.x,
+                    point.y,
+                    point.z + layer_distance
+                )
+        );
+        // 查找现有图层组中的子对象（底部、侧面和顶部表面）
+        let bottomSurface = layerGroup.getObjectByName(`bottomSurface_${index}`);
+        let sideSurface = layerGroup.getObjectByName(`sideSurface_${index}`);
+        let topSurface = layerGroup.getObjectByName(`topSurface_${index}`);
+
+        // 如果底部表面不存在，创建一个新的
+        if (!bottomSurface) {
+            bottomSurface = createTriangulatedSurface(belowPoints, scene, color);
+            bottomSurface.name = `bottomSurface_${index}`;
+            layerGroup.add(bottomSurface);
+        } else {
+            // 更新底部表面的几何体数据
+            updateSurfaceGeometry(bottomSurface.geometry, belowPoints);
+        }
+
+        // 如果侧面表面不存在，创建一个新的
+        if (!sideSurface) {
+            sideSurface = createSurface(belowPoints, layer_depth, scene, color);
+            sideSurface.name = `sideSurface_${index}`;
+            layerGroup.add(sideSurface);
+        } else {
+            // 更新侧面表面的几何体数据
+            updateSurfaceGeometry(sideSurface.geometry, belowPoints, layer_depth);
+        }
+
+        // 生成顶部点集
+        let topPoints = belowPoints.map(
+            (point) => new THREE.Vector3(point.x, point.y, point.z + layer_depth)
+        );
+
+        // 如果顶部表面不存在，创建一个新的
+        if (!topSurface) {
+            topSurface = createTriangulatedSurface(topPoints, scene, color);
+            topSurface.name = `topSurface_${index}`;
+            layerGroup.add(topSurface);
+        } else {
+            // 更新顶部表面的几何体数据
+            updateSurfaceGeometry(topSurface.geometry, topPoints);
+        }
+    });
+
+    // 清理多余的图层
+    while (layerGroup.children.length > layers.length * 3) {
+        const meshToRemove = layerGroup.children[layerGroup.children.length - 1];
+        (meshToRemove).geometry.dispose();
+        (meshToRemove).material.dispose();
+        layerGroup.remove(meshToRemove);
+    }
+}
+
+// 辅助函数，用于更新几何体数据
+function updateSurfaceGeometry(geometry, points, depth) {
+    const vertices = points.flatMap((point) => [point.x, point.y, point.z]);
+
+    // 如果是侧面，需要连接底部和顶部的点
+    if (depth !== undefined) {
+        const topPoints = points.map(
+            (point) => new THREE.Vector3(point.x, point.y, point.z + depth)
+        );
+        vertices.push(
+            ...topPoints.flatMap((point) => [point.x, point.y, point.z])
+        );
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+    geometry.attributes.position.needsUpdate = true;
+}
