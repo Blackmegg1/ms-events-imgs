@@ -1,7 +1,6 @@
 import {
   createDensityGrid,
   createGridLines,
-  createPoints,
   createSphere,
   updateLayerData,
 } from '@/utils/threeUtils';
@@ -69,12 +68,7 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
     const centerY = (maxY + minY) / 2;
     const centerZ = (maxZ + minZ) / 2;
 
-    const offset = 400;
-    const target = new THREE.Vector3(
-      centerX,
-      centerY + offset * 2,
-      minZ - offset,
-    );
+    const target = new THREE.Vector3(centerX, centerY, centerZ);
 
     return {
       maxX,
@@ -87,7 +81,6 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
       centerY,
       centerZ,
       target,
-      offset,
     };
   }, [points]);
 
@@ -138,7 +131,6 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
       centerY,
       centerZ,
       target,
-      offset,
     } = sceneData;
 
     if (!sceneRef.current) {
@@ -154,7 +146,7 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
         10000,
       );
       camera.up.set(0, 0, 1);
-      camera.position.set(centerX + 100, minY - offset * 1.2, centerZ);
+      camera.position.set(centerX, centerY - 700, centerZ + 120);
       camera.lookAt(target);
       cameraRef.current = camera;
     }

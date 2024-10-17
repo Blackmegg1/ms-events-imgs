@@ -35,7 +35,7 @@ export default defineConfig({
       component: './Event',
     },
     {
-      name: '事件成图',
+      name: '微震事件成图',
       path: '/createImg',
       routes: [
         {
@@ -55,6 +55,11 @@ export default defineConfig({
         // },
       ],
     },
+    // {
+    //   name: '微震时序成图',
+    //   path: '/timingImg',
+    //   component: './TimingImg',
+    // },
     {
       name: '空间模型',
       path: '/spaceModel',
