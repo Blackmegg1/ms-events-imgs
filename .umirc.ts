@@ -55,11 +55,11 @@ export default defineConfig({
         // },
       ],
     },
-    // {
-    //   name: '微震时序成图',
-    //   path: '/timingImg',
-    //   component: './TimingImg',
-    // },
+    {
+      name: '微震时序成图',
+      path: '/timingImg',
+      component: './TimingImg',
+    },
     {
       name: '空间模型',
       path: '/spaceModel',

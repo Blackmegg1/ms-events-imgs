@@ -2,9 +2,22 @@ import { getEventList } from '@/services/event/EventController';
 import { getProjectDist } from '@/services/project/ProjectController';
 import { computerEvent } from '@/utils/pointSurfaceRegion';
 import { PageContainer } from '@ant-design/pro-components';
-import { Button, Card, DatePicker, Form, message, Row, Select, Space } from 'antd';
+import {
+  Button,
+  Card,
+  DatePicker,
+  Form,
+  message,
+  Row,
+  Select,
+  Space,
+} from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
+import DailyAverageEnergyChart from './components/DailyAverageEnergyChart';
+import DailyEnergyChart from './components/DailyEnergyChart';
+import DailyFrequencyChart from './components/DailyFrequencyChart';
+import DailyMaxEnergyChart from './components/DailyMaxEnergyChart';
 
 const { RangePicker } = DatePicker;
 
@@ -77,7 +90,6 @@ const TimingImg = () => {
         }
       }
 
-
       setEventList(list); // 更新list
 
       if (list.length) {
@@ -88,7 +100,6 @@ const TimingImg = () => {
     }
     return list;
   };
-  
 
   return (
     <PageContainer
@@ -124,6 +135,7 @@ const TimingImg = () => {
                     onClick={() => {
                       const params = form.getFieldsValue();
                       console.log(params, 'params');
+                      getEvent(params);
                     }}
                   >
                     成图
@@ -135,6 +147,14 @@ const TimingImg = () => {
           <Row></Row>
         </Form>
       </Card>
+      {eventList.length > 0 ? (
+        <div>
+          <DailyEnergyChart events={eventList} />
+          <DailyFrequencyChart events={eventList} />
+          <DailyAverageEnergyChart events={eventList} />
+          <DailyMaxEnergyChart events={eventList} />
+        </div>
+      ) : null}
     </PageContainer>
   );
 };
