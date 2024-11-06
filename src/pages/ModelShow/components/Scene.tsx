@@ -1,4 +1,5 @@
 import {
+  createCompassArrow,
   createDensityGrid,
   createGridLines,
   createSphere,
@@ -33,10 +34,11 @@ interface SceneProps {
   events: Events | [];
   layers: Layers | [];
   eventMode: Number;
+  compass: any;
 }
 
 const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
-  const { points, events, layers, eventMode } = props;
+  const { points, events, layers, eventMode, compass } = props;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -173,6 +175,11 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
       true,
     );
     sceneRef.current.add(gridLines);
+
+    if (compass) {
+      const sceneCompass = createCompassArrow(compass.start, compass.end, {});
+      sceneRef.current.add(sceneCompass);
+    }
 
     const controls =
       controlRef.current ||

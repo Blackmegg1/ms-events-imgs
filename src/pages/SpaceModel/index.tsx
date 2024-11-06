@@ -3,6 +3,7 @@ import { getProjectDist } from '@/services/project/ProjectController';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { Button, Popconfirm, Space } from 'antd';
 import { useEffect, useRef, useState } from 'react';
+import CompassModal from './component/CompassModal';
 import CreateForm from './component/CreateForm';
 import LayerManage from './component/LayerManage';
 import PointManage from './component/PointManage';
@@ -16,6 +17,7 @@ const SpaceModel: React.FC = () => {
   const [updateModalVisible, handleUpdateVisible] = useState(false);
   const [pointDrawerVisible, handlePointDrawerVisible] = useState(false);
   const [layerDrawerVisible, handleLayerDrawerVisible] = useState(false);
+  const [compassModalVisible, handleCompassModalVisible] = useState(false);
 
   const tableRef = useRef();
   const formRef = useRef();
@@ -100,6 +102,15 @@ const SpaceModel: React.FC = () => {
             >
               层位管理
             </Button>
+            <Button
+              type="link"
+              onClick={() => {
+                setCurrentData(record);
+                handleCompassModalVisible(true);
+              }}
+            >
+              指北针设置
+            </Button>
             <Popconfirm
               title="确认删除该模型？"
               description="此操作不可逆"
@@ -173,6 +184,7 @@ const SpaceModel: React.FC = () => {
         drawerVisible={pointDrawerVisible}
         onCancel={() => {
           handlePointDrawerVisible(false);
+          tableRef.current.reload();
         }}
         currentRecord={currentData}
       />
@@ -180,8 +192,17 @@ const SpaceModel: React.FC = () => {
         drawerVisible={layerDrawerVisible}
         onCancel={() => {
           handleLayerDrawerVisible(false);
+          tableRef.current.reload();
         }}
         currentRecord={currentData}
+      />
+      <CompassModal
+        currentRecord={currentData}
+        modalVisible={compassModalVisible}
+        onCancel={() => {
+          handleCompassModalVisible(false);
+          tableRef.current.reload();
+        }}
       />
     </PageContainer>
   );

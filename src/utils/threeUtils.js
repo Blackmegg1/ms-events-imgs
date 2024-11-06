@@ -858,3 +858,103 @@ function updateSurfaceGeometry(geometry, points, depth) {
     geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
     geometry.attributes.position.needsUpdate = true;
 }
+
+// 创建指北针
+export function createCompassArrow(start, end, options = {}) {
+    const startPoint = new THREE.Vector3(start[0], start[1], start[2]);
+    const endPoint = new THREE.Vector3(end[0], end[1], end[2]);
+    // 默认参数
+    const {
+        arrowColor = 0xff0000,
+        cylinderRadius = 1,      // 圆柱体（箭身）半径
+        headRadius = 3,          // 箭头头部半径
+        headLength = 12,          // 箭头头部长度
+        textSize = 12,
+        textColor = 0xff0000   // 文字颜色
+    } = options;
+    // 创建组对象来容纳箭头和文字
+    const group = new THREE.Group();
+
+    const direction = new THREE.Vector3().subVectors(endPoint, startPoint);
+    const length = direction.length();
+
+    // 创建箭身（圆柱体）
+    const cylinderGeometry = new THREE.CylinderGeometry(
+        cylinderRadius,
+        cylinderRadius,
+        length - headLength,
+        16
+    );
+
+    // 创建箭头头部（圆锥体）
+    const coneGeometry = new THREE.CylinderGeometry(
+        0,
+        headRadius,
+        headLength,
+        16
+    );
+
+    // 使用基础材质
+    const arrowMaterial = new THREE.MeshBasicMaterial({ color: arrowColor });
+
+    // 创建箭头网格
+    const cylinder = new THREE.Mesh(cylinderGeometry, arrowMaterial);
+    const cone = new THREE.Mesh(coneGeometry, arrowMaterial);
+
+    // 调整部件位置
+    cylinder.position.y = (length - headLength) / 2;
+    cone.position.y = length - headLength / 2;
+
+    // 创建箭头组
+    const arrowGroup = new THREE.Group();
+    arrowGroup.add(cylinder);
+    arrowGroup.add(cone);
+
+    // 加载字体
+    const loader = new FontLoader();
+    const font = loader.parse(fontJson);
+    const textGeometry = new TextGeometry('N', {
+        font: font,
+        size: textSize,
+        height: textSize * 0.2, // 文字厚度
+        curveSegments: 12
+    });
+
+    // 计算文字的包围盒
+    textGeometry.computeBoundingBox();
+    const textBoundingBox = textGeometry.boundingBox;
+
+    // 计算文字的中心点偏移
+    const textCenterX = (textBoundingBox.max.x - textBoundingBox.min.x) / 2;
+    const textCenterY = (textBoundingBox.max.y - textBoundingBox.min.y) / 2;
+
+    const textMaterial = new THREE.MeshBasicMaterial({ color: textColor });
+    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+
+    // 设置文字位置，考虑中心点偏移
+    const textPosition = new THREE.Vector3().copy(direction);
+    textPosition.normalize().multiplyScalar(length + 10);
+    textMesh.position.copy(textPosition);
+
+    // 将文字中心点与箭头中心线对齐
+    textMesh.position.x -= textCenterX;
+    textMesh.position.y -= textCenterY;
+
+
+    // 添加到组中
+    group.add(textMesh);
+    group.add(arrowGroup);
+
+    // 调整箭头的方向
+    const quaternion = new THREE.Quaternion();
+    quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        direction.normalize()
+    );
+    arrowGroup.setRotationFromQuaternion(quaternion);
+
+    // 设置组的位置为起点
+    group.position.copy(startPoint);
+
+    return group;
+}

@@ -36,3 +36,23 @@ export async function deleteModel(model_id: number) {
     method: 'DELETE',
   });
 }
+
+export function editCompass(
+  model_id: number,
+  data: {
+    show_compass: boolean;
+    compass_start: string;
+    compass_end: string;
+  },
+) {
+  return request(`/api/model/compass/${model_id}`, {
+    method: 'put',
+    data,
+  });
+}
+
+export function getCompass(model_id: number) {
+  return request(`/api/model/compass/${model_id}`, {
+    method: 'get',
+  });
+}

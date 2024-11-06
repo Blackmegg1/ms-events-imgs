@@ -1,6 +1,6 @@
 import { getEventList } from '@/services/event/EventController';
 import { getLayerList } from '@/services/layer/LayerController';
-import { getModelList } from '@/services/model/ModelController';
+import { getCompass, getModelList } from '@/services/model/ModelController';
 import { getPointList } from '@/services/point/PointController';
 import { getProjectDist } from '@/services/project/ProjectController';
 import { PageContainer } from '@ant-design/pro-components';
@@ -9,10 +9,10 @@ import {
   Card,
   DatePicker,
   Form,
-  message,
   Row,
   Select,
   Space,
+  message,
 } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -55,7 +55,7 @@ const ModelShow = () => {
   // 事件展示方式
   const [eventMode, setEventMode] = useState(0);
   const [layers, setLayers] = useState<Layers | []>([]);
-
+  const [compass, setCompass] = useState(null);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -184,6 +184,16 @@ const ModelShow = () => {
                       if (layers.length > 0) {
                         setLayers(layers);
                       }
+
+                      const { compass: compass } = await getCompass(
+                        params.model_id,
+                      );
+                      if (compass[0].show_compass) {
+                        setCompass({
+                          start: compass[0].compass_start.split(','),
+                          end: compass[0].compass_end.split(','),
+                        });
+                      }
                     }}
                   >
                     成图
@@ -201,6 +211,7 @@ const ModelShow = () => {
             events={events}
             layers={layers}
             eventMode={eventMode}
+            compass={compass}
           />
         </Card>
       ) : null}
