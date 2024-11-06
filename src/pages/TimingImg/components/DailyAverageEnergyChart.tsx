@@ -125,7 +125,6 @@ const DailyAverageEnergyChart: React.FC<DailyAverageEnergyChartProps> = ({
           pieces: [
             {
               gt: 0,
-              lte: 0.5,
               color: '#ee6666',
             },
           ],
