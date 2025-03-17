@@ -7,7 +7,7 @@ export default defineConfig({
   initialState: {},
   request: {},
   layout: {
-    title: '微震事件分析工具',
+    title: '微震电法数据处理系统',
   },
   routes: [
     {
@@ -81,7 +81,6 @@ export default defineConfig({
   proxy: {
     '/api': {
       target: 'http://192.168.74.19:3000/',
-      // target: 'http://localhost:3000',
       changeOrigin: true,
       pathRewrite: { '^/api': '' },
     },
