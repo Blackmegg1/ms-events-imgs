@@ -76,6 +76,11 @@ export default defineConfig({
         },
       ],
     },
+    {
+      name: '电法数据合并',
+      path: '/surlineConcat',
+      component: './SurlineConcat',
+    },
   ],
   npmClient: 'pnpm',
   proxy: {
