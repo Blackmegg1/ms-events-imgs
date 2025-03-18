@@ -1,1 +1,1 @@
-export const DEFAULT_NAME = '微震事件分析工具';
+export const DEFAULT_NAME = '微震电法数据处理系统';
