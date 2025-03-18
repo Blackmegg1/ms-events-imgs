@@ -1,5 +1,5 @@
 import { PageContainer } from '@ant-design/pro-components';
-import { Button, Upload, Table, UploadFile, message, Space, Card, Divider, Descriptions, Tag, Input, Modal, List, Typography, Checkbox, Tooltip } from 'antd';
+import { Button, Upload, Table, UploadFile, message, Space, Card, Divider, Descriptions, Tag, Input, Modal, List, Typography, Checkbox } from 'antd';
 import { useState } from 'react';
 import { InboxOutlined, DownOutlined, RightOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, MergeCellsOutlined } from '@ant-design/icons';
 // 需要安装: npm install encoding text-encoding
@@ -59,6 +59,99 @@ type SpecialElectrode = {
 };
 
 const { Dragger } = Upload;
+
+// 解析 .dat 文件 - 重写为新的解析逻辑
+const parseDatFile = (content: string): DatDataMap => {
+  const lines = content.split('\n').filter(line => line.trim() !== '');
+  const result = new Map<string, [number, number]>();
+  
+  if (lines.length < 2) {
+    throw new Error('DAT文件格式错误，至少需要表头和一行数据');
+  }
+  
+  // 处理表头行，提取"电压N"中的N值
+  const headerLine = lines[0];
+  const headers = headerLine.split(',').map(h => h.trim());
+  const voltageIndices: number[] = [];
+  
+  // 查找所有表头中包含"电压"的列，并提取N值
+  headers.forEach((header) => {
+    // 使用正则表达式提取"电压"后面的数字
+    const match = header.match(/电压(\d+)/);
+    if (match && match[1]) {
+      voltageIndices.push(Number(match[1]));
+    } else if (header.includes('电压') && !isNaN(Number(header.replace(/[^0-9]/g, '')))) {
+      // 尝试另一种提取方式，移除所有非数字字符
+      const num = Number(header.replace(/[^0-9]/g, ''));
+      if (num > 0) voltageIndices.push(num);
+    }
+  });
+  
+  // 处理数据行
+  for (let rowIdx = 1; rowIdx < lines.length; rowIdx++) {
+    const rowValues = lines[rowIdx].split(',').map(v => parseFloat(v.trim()));
+    
+    // 确保有足够的数据
+    if (rowValues.length < 2) continue;
+    
+    // 电流值通常在第一列
+    const current = rowValues[0];
+    
+    // 处理每个电压值，将"N-行号"作为键
+    voltageIndices.forEach((n, colIdx) => {
+      // 电压值在第N+1列（假设第一列是电流）
+      if (colIdx + 1 < rowValues.length) {
+        const voltage = rowValues[colIdx + 1];
+        if (!isNaN(current) && !isNaN(voltage)) {
+          // 键格式: "N-行号"，仍保留原格式但稍后会解析为数字
+          const key = `${n}-${rowIdx}`;
+          result.set(key, [current, voltage]);
+        }
+      }
+    });
+  }
+  return result;
+};
+
+// 解析 .csv 文件 - 修改为返回Map结构和特殊电极
+const parseCsvFile = (content: string, fileName: string = ''): { 
+  coordinates: CsvDataMap, 
+  specialElectrodes: SpecialElectrode[] 
+} => {
+  const lines = content.split('\n').filter(line => line.trim() !== '');
+  const result = new Map<number, [number, number, number]>();
+  const newSpecialElectrodes: SpecialElectrode[] = [];
+  
+  // 跳过表头行
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(',');
+    if (parts.length >= 4) {
+      const idPart = parts[0].trim();
+      const x = parseFloat(parts[1]);
+      const y = parseFloat(parts[2]);
+      const z = parseFloat(parts[3]);
+      
+      // 检查是否是特殊电极(B或N)
+      if (idPart === 'B' || idPart === 'N') {
+        if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+          newSpecialElectrodes.push({
+            type: idPart,
+            position: [x, y, z],
+            fileSource: fileName
+          });
+        }
+      } else {
+        // 常规电极
+        const index = parseInt(idPart, 10);
+        if (!isNaN(index) && !isNaN(x) && !isNaN(y) && !isNaN(z)) {
+          result.set(index, [x, y, z]);
+        }
+      }
+    }
+  }
+  
+  return { coordinates: result, specialElectrodes: newSpecialElectrodes };
+};
 
 const HomePage: React.FC = () => {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
@@ -147,7 +240,7 @@ const HomePage: React.FC = () => {
   };
 
   // 修改processFile函数，让它返回解析后的数据
-  const processFile = (file: File): Promise<DatDataMap | CsvDataMap> => {
+  const processFile = (file: File): Promise<DatDataMap | { coordinates: CsvDataMap, specialElectrodes: SpecialElectrode[] }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
@@ -180,10 +273,14 @@ const HomePage: React.FC = () => {
         reader.onload = (e) => {
           try {
             const content = e.target?.result as string;
-            const parsedData = parseCsvFile(content, file.name); // 传入文件名
-            setCsvData(parsedData); // 仍然更新状态
+            const { coordinates, specialElectrodes: newSpecialElectrodes } = parseCsvFile(content, file.name);
+            setCsvData(coordinates); // 更新坐标状态
+            
+            // 更新特殊电极状态
+            setSpecialElectrodes(prevElectrodes => [...prevElectrodes, ...newSpecialElectrodes]);
+            
             message.success(`成功解析 .csv 文件: ${file.name}`);
-            resolve(parsedData); // 返回解析后的数据
+            resolve({ coordinates, specialElectrodes: newSpecialElectrodes }); // 返回解析后的数据
           } catch (error: any) {
             message.error(`解析CSV文件失败: ${error.message}`);
             reject(error);
@@ -201,102 +298,6 @@ const HomePage: React.FC = () => {
         reject(new Error('Unsupported file format'));
       }
     });
-  };
-
-  // 解析 .dat 文件 - 重写为新的解析逻辑
-  const parseDatFile = (content: string): DatDataMap => {
-    const lines = content.split('\n').filter(line => line.trim() !== '');
-    const result = new Map<string, [number, number]>();
-    
-    if (lines.length < 2) {
-      throw new Error('DAT文件格式错误，至少需要表头和一行数据');
-    }
-    
-    // 处理表头行，提取"电压N"中的N值
-    const headerLine = lines[0];
-    const headers = headerLine.split(',').map(h => h.trim());
-    const voltageIndices: number[] = [];
-    
-    // 查找所有表头中包含"电压"的列，并提取N值
-    headers.forEach((header, idx) => {
-      // 使用正则表达式提取"电压"后面的数字
-      const match = header.match(/电压(\d+)/);
-      if (match && match[1]) {
-        voltageIndices.push(Number(match[1]));
-      } else if (header.includes('电压') && !isNaN(Number(header.replace(/[^0-9]/g, '')))) {
-        // 尝试另一种提取方式，移除所有非数字字符
-        const num = Number(header.replace(/[^0-9]/g, ''));
-        if (num > 0) voltageIndices.push(num);
-      }
-    });
-    
-    // 处理数据行
-    for (let rowIdx = 1; rowIdx < lines.length; rowIdx++) {
-      const rowValues = lines[rowIdx].split(',').map(v => parseFloat(v.trim()));
-      
-      // 确保有足够的数据
-      if (rowValues.length < 2) continue;
-      
-      // 电流值通常在第一列
-      const current = rowValues[0];
-      
-      // 处理每个电压值，将"N-行号"作为键
-      voltageIndices.forEach((n, colIdx) => {
-        // 电压值在第N+1列（假设第一列是电流）
-        if (colIdx + 1 < rowValues.length) {
-          const voltage = rowValues[colIdx + 1];
-          if (!isNaN(current) && !isNaN(voltage)) {
-            // 键格式: "N-行号"，仍保留原格式但稍后会解析为数字
-            const key = `${n}-${rowIdx}`;
-            result.set(key, [current, voltage]);
-          }
-        }
-      });
-    }
-    return result;
-  };
-
-  // 解析 .csv 文件 - 修改为返回Map结构
-  const parseCsvFile = (content: string, fileName: string = ''): CsvDataMap => {
-    const lines = content.split('\n').filter(line => line.trim() !== '');
-    const result = new Map<number, [number, number, number]>();
-    const newSpecialElectrodes: SpecialElectrode[] = [];
-    
-    // 跳过表头行
-    for (let i = 1; i < lines.length; i++) {
-      const parts = lines[i].split(',');
-      if (parts.length >= 4) {
-        const idPart = parts[0].trim();
-        const x = parseFloat(parts[1]);
-        const y = parseFloat(parts[2]);
-        const z = parseFloat(parts[3]);
-        
-        // 检查是否是特殊电极(B或N)
-        if (idPart === 'B' || idPart === 'N') {
-          if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
-            newSpecialElectrodes.push({
-              type: idPart,
-              position: [x, y, z],
-              fileSource: fileName
-            });
-          }
-        } else {
-          // 常规电极
-          const index = parseInt(idPart, 10);
-          if (!isNaN(index) && !isNaN(x) && !isNaN(y) && !isNaN(z)) {
-            result.set(index, [x, y, z]);
-          }
-        }
-      }
-    }
-    
-    // 将新发现的特殊电极添加到状态中
-    if (newSpecialElectrodes.length > 0) {
-      setSpecialElectrodes(prev => [...prev, ...newSpecialElectrodes]);
-      message.info(`发现 ${newSpecialElectrodes.length} 个特殊电极 (B/N)`);
-    }
-    
-    return result;
   };
 
   // 清除选择
@@ -320,7 +321,8 @@ const HomePage: React.FC = () => {
     try {
       // 先解析CSV文件并获取结果
       message.info('正在解析CSV文件...');
-      const csvParsedData = await processFile(selectedCsvFile) as CsvDataMap;
+      const csvResult = await processFile(selectedCsvFile) as { coordinates: CsvDataMap, specialElectrodes: SpecialElectrode[] };
+      const csvParsedData = csvResult.coordinates;
       
       // 再解析DAT文件并获取结果
       message.info('正在解析DAT文件...');
@@ -373,6 +375,7 @@ const HomePage: React.FC = () => {
   };
 
   // 将processedMapData转换为表格可显示的格式
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getTableData = (): TableDisplayData[] => {
     const tableData: TableDisplayData[] = [];
     
@@ -501,6 +504,7 @@ const HomePage: React.FC = () => {
   };
 
   // 下载合并后的数据 - 使用processedMapData并更新CSV格式
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const downloadData = () => {
     if (Object.keys(processedMapData).length === 0) {
       message.warning('没有可下载的数据，请先合并数据');
@@ -639,11 +643,6 @@ const HomePage: React.FC = () => {
   
   // 确认合并多个数据集
   const handleMergeDatasets = () => {
-    if (!mergedSetName.trim()) {
-      message.warning('请输入合并后的数据集名称');
-      return;
-    }
-    
     try {
       // 获取所有选中的数据集
       const datasetsToMerge = mergedDatasets.filter(ds => selectedDatasetIds.has(ds.id));
@@ -747,11 +746,14 @@ const HomePage: React.FC = () => {
           
           // 如果没有匹配，则分配新索引
           if (!matched) {
-            maxElectrodeIndex++; // 新索引 = 当前最大索引 + 1
-            indexMapping[originalIndex] = maxElectrodeIndex;
+            const newIndex = maxElectrodeIndex + 1; // 使用局部变量来避免闭包问题
+            indexMapping[originalIndex] = newIndex;
             
             // 保存新电极坐标供后续查找
-            processedElectrodes[maxElectrodeIndex] = [...electrodePos];
+            processedElectrodes[newIndex] = [...electrodePos];
+            
+            // 安全更新maxElectrodeIndex
+            maxElectrodeIndex = newIndex;
           }
         });
         
@@ -816,6 +818,7 @@ const HomePage: React.FC = () => {
   };
 
   // 表格列定义 - 修改为使用复选框
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const columns = [
     {
       title: '选择',
@@ -864,6 +867,7 @@ const HomePage: React.FC = () => {
   ];
 
   // 更新合并数据的表格列定义
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const combinedColumns = [
     {
       title: '索引',
@@ -1199,14 +1203,15 @@ const HomePage: React.FC = () => {
             key={item.id}
             actions={[
               <Button 
+                key="export"
                 type="link" 
                 onClick={() => exportDatasetFiles(item.id)}
                 title="必须选择一个B极和一个N极才能导出"
               >
                 导出
               </Button>,
-              <Button type="link" onClick={() => selectDataset(item.id)}>查看</Button>,
-              <Button type="link" danger onClick={() => deleteDataset(item.id)}><DeleteOutlined /></Button>
+              <Button key="view" type="link" onClick={() => selectDataset(item.id)}>查看</Button>,
+              <Button key="delete" type="link" danger onClick={() => deleteDataset(item.id)}><DeleteOutlined /></Button>
             ]}
             style={{ 
               backgroundColor: item.id === selectedDatasetId ? '#e6f7ff' : 'transparent'
