@@ -9,6 +9,8 @@ import FileUploader from './component/FileUploader';
 import DataSummary from './component/DataSummary';
 import DataPreview from './component/DataPreview';
 import DatasetList from './component/DatasetList';
+// 导入特殊电极列表组件
+import SpecialElectrodesList from './component/SpecialElectrodesList';
 // 导入类型定义
 import { 
   DatDataMap, 
@@ -1100,109 +1102,22 @@ const HomePage: React.FC = () => {
     setSelectedFileUids(newSelectedFileUids);
   };
 
-  // 添加特殊电极显示组件
-  const SpecialElectrodesList = () => {
-    if (specialElectrodes.length === 0) {
-      return null;
+  // 添加处理删除特殊电极的函数
+  const handleDeleteSpecialElectrodes = (indexesToDelete: number[]) => {
+    // 更新选中的B极和N极索引
+    if (selectedBElectrodeIndex !== null && indexesToDelete.includes(selectedBElectrodeIndex)) {
+      setSelectedBElectrodeIndex(null);
+    }
+    if (selectedNElectrodeIndex !== null && indexesToDelete.includes(selectedNElectrodeIndex)) {
+      setSelectedNElectrodeIndex(null);
     }
     
-    return (
-      <Card 
-        title="特殊电极 (B/N)" 
-        style={{ marginBottom: 16 }}
-        extra={
-          <Typography.Text type="secondary">
-            请选择一个B极和一个N极用于导出数据
-          </Typography.Text>
-        }
-      >
-        <Table
-          dataSource={specialElectrodes.map((electrode, idx) => ({
-            key: idx,
-            type: electrode.type,
-            x: electrode.position[0],
-            y: electrode.position[1],
-            z: electrode.position[2],
-            source: electrode.fileSource
-          }))}
-          columns={[
-            {
-              title: '选择',
-              dataIndex: 'key',
-              key: 'select',
-              width: 60,
-              render: (key: number, record: any) => (
-                <Checkbox
-                  checked={selectedSpecialElectrodes.has(key)}
-                  onChange={(e) => handleSpecialElectrodeSelect(key, e.target.checked)}
-                />
-              )
-            },
-            { 
-              title: '类型', 
-              dataIndex: 'type', 
-              key: 'type',
-              render: (type: string, record: any) => (
-                <>
-                  {type}
-                  {record.key === selectedBElectrodeIndex && type === 'B' && (
-                    <Tag color="blue" style={{ marginLeft: 8 }}>已选择</Tag>
-                  )}
-                  {record.key === selectedNElectrodeIndex && type === 'N' && (
-                    <Tag color="green" style={{ marginLeft: 8 }}>已选择</Tag>
-                  )}
-                </>
-              )
-            },
-            { title: 'X(m)', dataIndex: 'x', key: 'x' },
-            { title: 'Y(m)', dataIndex: 'y', key: 'y' },
-            { title: 'Z(m)', dataIndex: 'z', key: 'z' },
-            { title: '来源', dataIndex: 'source', key: 'source' },
-          ]}
-          pagination={false}
-          size="small"
-        />
-        <Space style={{ marginTop: 16 }}>
-          <Button 
-            danger 
-            icon={<DeleteOutlined />}
-            onClick={() => {
-              if (selectedSpecialElectrodes.size === 0) {
-                message.warning('请先选择要删除的电极');
-                return;
-              }
-              
-              Modal.confirm({
-                title: '确认删除',
-                content: `确定要删除选中的 ${selectedSpecialElectrodes.size} 个特殊电极吗？`,
-                okText: '删除',
-                okType: 'danger',
-                cancelText: '取消',
-                onOk: () => {
-                  // 更新选中的B极和N极索引
-                  if (selectedBElectrodeIndex !== null && selectedSpecialElectrodes.has(selectedBElectrodeIndex)) {
-                    setSelectedBElectrodeIndex(null);
-                  }
-                  if (selectedNElectrodeIndex !== null && selectedSpecialElectrodes.has(selectedNElectrodeIndex)) {
-                    setSelectedNElectrodeIndex(null);
-                  }
-                  
-                  const newElectrodes = specialElectrodes.filter((_, idx) => 
-                    !selectedSpecialElectrodes.has(idx)
-                  );
-                  setSpecialElectrodes(newElectrodes);
-                  setSelectedSpecialElectrodes(new Set());
-                  message.success('删除成功');
-                }
-              });
-            }}
-            disabled={selectedSpecialElectrodes.size === 0}
-          >
-            删除选中电极
-          </Button>
-        </Space>
-      </Card>
+    const newElectrodes = specialElectrodes.filter((_, idx) => 
+      !indexesToDelete.includes(idx)
     );
+    setSpecialElectrodes(newElectrodes);
+    setSelectedSpecialElectrodes(new Set());
+    message.success('删除成功');
   };
 
   return (
@@ -1244,8 +1159,15 @@ const HomePage: React.FC = () => {
         selectedNElectrodeIndex={selectedNElectrodeIndex}
       />
       
-      {/* 添加特殊电极列表组件 */}
-      <SpecialElectrodesList />
+      {/* 使用独立的特殊电极列表组件 */}
+      <SpecialElectrodesList
+        specialElectrodes={specialElectrodes}
+        selectedSpecialElectrodes={selectedSpecialElectrodes}
+        selectedBElectrodeIndex={selectedBElectrodeIndex}
+        selectedNElectrodeIndex={selectedNElectrodeIndex}
+        onElectrodeSelect={handleSpecialElectrodeSelect}
+        onElectrodesDelete={handleDeleteSpecialElectrodes}
+      />
       
       {/* 使用新的DataPreview组件 */}
       <DataPreview 
