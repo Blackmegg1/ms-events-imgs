@@ -96,11 +96,22 @@ const parseCsvFile = (content: string, fileName: string = ''): {
       // 检查是否是特殊电极(B或N)
       if (idPart === 'B' || idPart === 'N') {
         if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
-          newSpecialElectrodes.push({
-            type: idPart,
-            position: [x, y, z],
-            fileSource: fileName
-          });
+          // 检查是否已存在相同坐标的同类型特殊电极
+          const exists = newSpecialElectrodes.some(electrode => 
+            electrode.type === idPart && 
+            Math.abs(electrode.position[0] - x) < 0.0001 && 
+            Math.abs(electrode.position[1] - y) < 0.0001 && 
+            Math.abs(electrode.position[2] - z) < 0.0001
+          );
+          
+          // 只有当不存在相同坐标的同类型电极时才添加
+          if (!exists) {
+            newSpecialElectrodes.push({
+              type: idPart,
+              position: [x, y, z],
+              fileSource: fileName
+            });
+          }
         }
       } else {
         // 常规电极
@@ -242,8 +253,28 @@ const HomePage: React.FC = () => {
             const { coordinates, specialElectrodes: newSpecialElectrodes } = parseCsvFile(content, file.name);
             setCsvData(coordinates); // 更新坐标状态
             
-            // 更新特殊电极状态
-            setSpecialElectrodes(prevElectrodes => [...prevElectrodes, ...newSpecialElectrodes]);
+            // 更新特殊电极状态 - 去重添加
+            setSpecialElectrodes(prevElectrodes => {
+              const updatedElectrodes = [...prevElectrodes];
+              
+              // 遍历新解析的特殊电极
+              newSpecialElectrodes.forEach(newElectrode => {
+                // 检查是否已存在相同坐标的同类型电极
+                const existingIndex = updatedElectrodes.findIndex(existing => 
+                  existing.type === newElectrode.type && 
+                  Math.abs(existing.position[0] - newElectrode.position[0]) < 0.0001 &&
+                  Math.abs(existing.position[1] - newElectrode.position[1]) < 0.0001 &&
+                  Math.abs(existing.position[2] - newElectrode.position[2]) < 0.0001
+                );
+                
+                // 如果不存在，则添加新电极
+                if (existingIndex === -1) {
+                  updatedElectrodes.push(newElectrode);
+                }
+              });
+              
+              return updatedElectrodes;
+            });
             
             message.success(`成功解析 .csv 文件: ${file.name}`);
             resolve({ coordinates, specialElectrodes: newSpecialElectrodes }); // 返回解析后的数据
