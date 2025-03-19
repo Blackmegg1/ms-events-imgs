@@ -22,111 +22,17 @@ import {
   SpecialElectrode 
 } from './types';
 
+// 导入工具函数
+import { processFile } from './utils/fileProcessors';
+import { handleFileSelect, handleDeleteFile, clearFileSelection } from './utils/fileSelectors';
+// 导入合并数据集的工具函数
+import { mergeDatasets } from './utils/mergeHelpers';
+// 导入导出数据集的工具函数
+import { exportDatasetFiles } from './utils/exportHelpers';
+
 const { Dragger } = Upload;
 
-// 解析 .dat 文件 - 重写为新的解析逻辑
-const parseDatFile = (content: string): DatDataMap => {
-  const lines = content.split('\n').filter(line => line.trim() !== '');
-  const result = new Map<string, [number, number]>();
-  
-  if (lines.length < 2) {
-    throw new Error('DAT文件格式错误，至少需要表头和一行数据');
-  }
-  
-  // 处理表头行，提取"电压N"中的N值
-  const headerLine = lines[0];
-  const headers = headerLine.split(',').map(h => h.trim());
-  const voltageIndices: number[] = [];
-  
-  // 查找所有表头中包含"电压"的列，并提取N值
-  headers.forEach((header) => {
-    // 使用正则表达式提取"电压"后面的数字
-    const match = header.match(/电压(\d+)/);
-    if (match && match[1]) {
-      voltageIndices.push(Number(match[1]));
-    } else if (header.includes('电压') && !isNaN(Number(header.replace(/[^0-9]/g, '')))) {
-      // 尝试另一种提取方式，移除所有非数字字符
-      const num = Number(header.replace(/[^0-9]/g, ''));
-      if (num > 0) voltageIndices.push(num);
-    }
-  });
-  
-  // 处理数据行
-  for (let rowIdx = 1; rowIdx < lines.length; rowIdx++) {
-    const rowValues = lines[rowIdx].split(',').map(v => parseFloat(v.trim()));
-    
-    // 确保有足够的数据
-    if (rowValues.length < 2) continue;
-    
-    // 电流值通常在第一列
-    const current = rowValues[0];
-    
-    // 处理每个电压值，将"N-行号"作为键
-    voltageIndices.forEach((n, colIdx) => {
-      // 电压值在第N+1列（假设第一列是电流）
-      if (colIdx + 1 < rowValues.length) {
-        const voltage = rowValues[colIdx + 1];
-        if (!isNaN(current) && !isNaN(voltage)) {
-          // 键格式: "N-行号"，仍保留原格式但稍后会解析为数字
-          const key = `${n}-${rowIdx}`;
-          result.set(key, [current, voltage]);
-        }
-      }
-    });
-  }
-  return result;
-};
-
-// 解析 .csv 文件 - 修改为返回Map结构和特殊电极
-const parseCsvFile = (content: string, fileName: string = ''): { 
-  coordinates: CsvDataMap, 
-  specialElectrodes: SpecialElectrode[] 
-} => {
-  const lines = content.split('\n').filter(line => line.trim() !== '');
-  const result = new Map<number, [number, number, number]>();
-  const newSpecialElectrodes: SpecialElectrode[] = [];
-  
-  // 跳过表头行
-  for (let i = 1; i < lines.length; i++) {
-    const parts = lines[i].split(',');
-    if (parts.length >= 4) {
-      const idPart = parts[0].trim();
-      const x = parseFloat(parts[1]);
-      const y = parseFloat(parts[2]);
-      const z = parseFloat(parts[3]);
-      
-      // 检查是否是特殊电极(B或N)
-      if (idPart === 'B' || idPart === 'N') {
-        if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
-          // 检查是否已存在相同坐标的同类型特殊电极
-          const exists = newSpecialElectrodes.some(electrode => 
-            electrode.type === idPart && 
-            Math.abs(electrode.position[0] - x) < 0.0001 && 
-            Math.abs(electrode.position[1] - y) < 0.0001 && 
-            Math.abs(electrode.position[2] - z) < 0.0001
-          );
-          
-          // 只有当不存在相同坐标的同类型电极时才添加
-          if (!exists) {
-            newSpecialElectrodes.push({
-              type: idPart,
-              position: [x, y, z],
-              fileSource: fileName
-            });
-          }
-        }
-      } else {
-        // 常规电极
-        const index = parseInt(idPart, 10);
-        if (!isNaN(index) && !isNaN(x) && !isNaN(y) && !isNaN(z)) {
-          result.set(index, [x, y, z]);
-        }
-      }
-    }
-  }
-  
-  return { coordinates: result, specialElectrodes: newSpecialElectrodes };
-};
+// 删除冗余的 parseDatFile 和 parseCsvFile 函数，因为它们已经在 utils/fileProcessors 中实现
 
 const HomePage: React.FC = () => {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
@@ -174,141 +80,51 @@ const HomePage: React.FC = () => {
     setFileList(fileList);
   };
 
-  // 处理文件复选框选择
-  const handleFileSelect = (file: UploadFile, checked: boolean) => {
-    const newSelectedFileUids = new Set(selectedFileUids);
-    
-    if (checked) {
-      // 检查文件类型
-      if (file.name.endsWith('.dat')) {
-        // 如果已经选了一个dat文件，不允许再选
-        if (selectedDatUid !== null) {
-          message.warning('已经选择了一个.dat文件');
-          return;
-        }
-        setSelectedDatUid(file.uid);
-        if (file.originFileObj) setSelectedDatFile(file.originFileObj);
-      } else if (file.name.endsWith('.csv')) {
-        // 如果已经选了一个csv文件，不允许再选
-        if (selectedCsvUid !== null) {
-          message.warning('已经选择了一个.csv文件');
-          return;
-        }
-        setSelectedCsvUid(file.uid);
-        if (file.originFileObj) setSelectedCsvFile(file.originFileObj);
-      } else {
-        message.warning('只能选择.dat或.csv文件');
-        return;
-      }
-      
-      newSelectedFileUids.add(file.uid);
-    } else {
-      // 取消选择
-      newSelectedFileUids.delete(file.uid);
-      
-      if (file.uid === selectedDatUid) {
-        setSelectedDatUid(null);
-        setSelectedDatFile(null);
-      } else if (file.uid === selectedCsvUid) {
-        setSelectedCsvUid(null);
-        setSelectedCsvFile(null);
-      }
-    }
-    
-    setSelectedFileUids(newSelectedFileUids);
-  };
-
-  // 修改processFile函数，让它返回解析后的数据
-  const processFile = (file: File): Promise<DatDataMap | { coordinates: CsvDataMap, specialElectrodes: SpecialElectrode[] }> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      
-      if (file.name.endsWith('.dat')) {
-        // DAT文件使用ArrayBuffer读取，然后按ANSI(GBK)编码转换
-        reader.onload = (e) => {
-          try {
-            const buffer = e.target?.result as ArrayBuffer;
-            // 使用encoding库将GBK编码的Buffer转换为UTF-8字符串
-            const content = encoding.convert(new Uint8Array(buffer), 'UTF-8', 'GBK').toString();
-            
-            const parsedData = parseDatFile(content);
-            setDatData(parsedData); // 仍然更新状态
-            message.success(`成功解析 .dat 文件: ${file.name}`);
-            resolve(parsedData); // 返回解析后的数据
-          } catch (error: any) {
-            message.error(`解析DAT文件失败: ${error.message}`);
-            reject(error);
-          }
-        };
-        
-        reader.onerror = () => {
-          message.error('读取DAT文件时出错');
-          reject(new Error('File reading error'));
-        };
-        
-        reader.readAsArrayBuffer(file);
-      } else if (file.name.endsWith('.csv')) {
-        // CSV文件可以使用UTF-8读取
-        reader.onload = (e) => {
-          try {
-            const content = e.target?.result as string;
-            const { coordinates, specialElectrodes: newSpecialElectrodes } = parseCsvFile(content, file.name);
-            setCsvData(coordinates); // 更新坐标状态
-            
-            // 更新特殊电极状态 - 去重添加
-            setSpecialElectrodes(prevElectrodes => {
-              const updatedElectrodes = [...prevElectrodes];
-              
-              // 遍历新解析的特殊电极
-              newSpecialElectrodes.forEach(newElectrode => {
-                // 检查是否已存在相同坐标的同类型电极
-                const existingIndex = updatedElectrodes.findIndex(existing => 
-                  existing.type === newElectrode.type && 
-                  Math.abs(existing.position[0] - newElectrode.position[0]) < 0.0001 &&
-                  Math.abs(existing.position[1] - newElectrode.position[1]) < 0.0001 &&
-                  Math.abs(existing.position[2] - newElectrode.position[2]) < 0.0001
-                );
-                
-                // 如果不存在，则添加新电极
-                if (existingIndex === -1) {
-                  updatedElectrodes.push(newElectrode);
-                }
-              });
-              
-              return updatedElectrodes;
-            });
-            
-            message.success(`成功解析 .csv 文件: ${file.name}`);
-            resolve({ coordinates, specialElectrodes: newSpecialElectrodes }); // 返回解析后的数据
-          } catch (error: any) {
-            message.error(`解析CSV文件失败: ${error.message}`);
-            reject(error);
-          }
-        };
-        
-        reader.onerror = () => {
-          message.error('读取CSV文件时出错');
-          reject(new Error('File reading error'));
-        };
-        
-        reader.readAsText(file);
-      } else {
-        message.error('不支持的文件格式，请上传 .dat 或 .csv 文件');
-        reject(new Error('Unsupported file format'));
-      }
-    });
+  // 使用导入的工具函数处理文件选择
+  const handleFileSelectWrapper = (file: UploadFile, checked: boolean) => {
+    handleFileSelect(
+      file, 
+      checked, 
+      selectedFileUids, 
+      setSelectedFileUids,
+      selectedDatUid,
+      setSelectedDatUid,
+      selectedCsvUid,
+      setSelectedCsvUid,
+      setSelectedDatFile,
+      setSelectedCsvFile
+    );
   };
 
   // 清除选择
   const clearSelection = () => {
-    setSelectedDatFile(null);
-    setSelectedCsvFile(null);
-    setSelectedDatUid(null);
-    setSelectedCsvUid(null);
-    setSelectedFileUids(new Set());
+    clearFileSelection(
+      setSelectedDatFile,
+      setSelectedCsvFile,
+      setSelectedDatUid,
+      setSelectedCsvUid,
+      setSelectedFileUids
+    );
   };
 
-  // 修改associateData函数，使用返回的解析结果
+  // 使用导入的工具函数处理文件删除
+  const handleDeleteFileWrapper = (uid: string) => {
+    handleDeleteFile(
+      uid,
+      fileList,
+      setFileList,
+      selectedDatUid,
+      setSelectedDatUid,
+      selectedCsvUid,
+      setSelectedCsvUid,
+      setSelectedDatFile,
+      setSelectedCsvFile,
+      selectedFileUids,
+      setSelectedFileUids
+    );
+  };
+
+  // 修改associateData函数，使用导入的处理文件函数
   const associateData = async () => {
     if (!selectedDatFile || !selectedCsvFile) {
       message.warning('请先选择一个.dat文件和一个.csv文件');
@@ -324,12 +140,15 @@ const HomePage: React.FC = () => {
       
       // 先解析CSV文件并获取结果
       message.info('正在解析CSV文件...');
-      const csvResult = await processFile(selectedCsvFile) as { coordinates: CsvDataMap, specialElectrodes: SpecialElectrode[] };
+      const csvResult = await processFile(selectedCsvFile, setDatData, setCsvData, setSpecialElectrodes) as { 
+        coordinates: CsvDataMap, 
+        specialElectrodes: SpecialElectrode[] 
+      };
       const csvParsedData = csvResult.coordinates;
       
       // 再解析DAT文件并获取结果
       message.info('正在解析DAT文件...');
-      const datParsedData = await processFile(selectedDatFile) as DatDataMap;
+      const datParsedData = await processFile(selectedDatFile, setDatData, setCsvData, setSpecialElectrodes) as DatDataMap;
       
       if (csvParsedData.size === 0 || datParsedData.size === 0) {
         throw new Error('文件解析失败');
@@ -511,45 +330,6 @@ const HomePage: React.FC = () => {
     return { data: tableData, columns: tableColumns };
   };
 
-  // 下载合并后的数据 - 使用processedMapData并更新CSV格式
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const downloadData = () => {
-    if (Object.keys(processedMapData).length === 0) {
-      message.warning('没有可下载的数据，请先合并数据');
-      return;
-    }
-
-    try {
-      // 获取表格数据并准备下载
-      const { data, columns } = getMatrixTableData();
-      
-      // 创建CSV内容，从表格数据生成
-      const headers = columns.map(col => col.title).join(',');
-      let csvContent = headers + '\n';
-      
-      // 添加每一行数据
-      data.forEach(row => {
-        const values = columns.map(col => row[col.dataIndex] !== undefined ? row[col.dataIndex] : '');
-        csvContent += values.join(',') + '\n';
-      });
-      
-      // 创建下载链接
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', 'combined_data.csv');
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      message.success('数据下载成功！');
-    } catch (error: any) {
-      message.error(`下载失败: ${error.message}`);
-    }
-  };
-
   // 保存当前关联结果
   const saveCurrentResult = () => {
     if (Object.keys(processedMapData).length === 0) {
@@ -649,186 +429,19 @@ const HomePage: React.FC = () => {
     setMergeModalVisible(true);
   };
   
-  // 确认合并多个数据集
+  // 确认合并多个数据集 - 使用工具函数替代原始实现
   const handleMergeDatasets = () => {
-    try {
-      // 获取所有选中的数据集
-      const datasetsToMerge = mergedDatasets.filter(ds => selectedDatasetIds.has(ds.id));
-      if (datasetsToMerge.length < 2) {
-        throw new Error('至少需要两个数据集才能合并');
-      }
-      
-      // 创建新的合并后的数据结构
-      const mergedData: ProcessedMapType = {};
-      
-      // 确保有序处理数据集
-      datasetsToMerge.sort((a, b) => {
-        // 根据被选中的顺序排序
-        const aIndex = Array.from(selectedDatasetIds).indexOf(a.id);
-        const bIndex = Array.from(selectedDatasetIds).indexOf(b.id);
-        return aIndex - bIndex;
-      });
-
-      // 存储所有已处理的电极坐标，用于后续查找匹配
-      const processedElectrodes: {[key: number]: [number, number, number]} = {};
-      
-      // 记录最大的电极索引，用于生成新的连续索引
-      let maxElectrodeIndex = 0;
-      
-      // 处理第一个数据集作为基准
-      const firstDataset = datasetsToMerge[0];
-      const firstDatasetElectrodes = Object.entries(firstDataset.data);
-      
-      // 为第一个数据集创建索引映射
-      const firstIndexMapping: {[originalIndex: string]: number} = {};
-      let newElectrodeIndex = 1; // 从1开始编号
-      
-      // 第一个数据集的电极从1开始重新编号
-      firstDatasetElectrodes.forEach(([originalIndex, _]) => {
-        firstIndexMapping[originalIndex] = newElectrodeIndex++;
-      });
-      
-      console.log('第一个数据集索引映射:', firstIndexMapping);
-      
-      // 应用第一个数据集的映射
-      firstDatasetElectrodes.forEach(([originalIndex, data]) => {
-        const newIndex = firstIndexMapping[originalIndex];
-        
-        // 保存电极坐标用于后续匹配
-        processedElectrodes[newIndex] = [...data.pos];
-        
-        // 复制位置数据到合并结果
-        mergedData[newIndex] = {
-          pos: [...data.pos],
-          voltage: {}
-        };
-        
-        // 处理电压数据，同时调整行号
-        Object.entries(data.voltage).forEach(([rowIdStr, values]) => {
-          const rowId = parseInt(rowIdStr, 10);
-          let newRowId = rowId;
-          
-          // 对行号也应用相同的映射规则（如果可以）
-          if (firstIndexMapping[rowId.toString()]) {
-            newRowId = firstIndexMapping[rowId.toString()];
-          }
-          
-          // 添加电压数据
-          mergedData[newIndex].voltage[newRowId] = values;
-        });
-        
-        // 更新最大电极索引
-        if (newIndex > maxElectrodeIndex) {
-          maxElectrodeIndex = newIndex;
-        }
-      });
-      
-      // 处理其余数据集
-      for (let datasetIdx = 1; datasetIdx < datasetsToMerge.length; datasetIdx++) {
-        const currentDataset = datasetsToMerge[datasetIdx];
-        const currentElectrodes = Object.entries(currentDataset.data);
-        
-        // 为当前数据集创建映射关系
-        const indexMapping: {[originalIndex: string]: number} = {};
-        const matchedElectrodes: Set<string> = new Set(); // 记录已匹配到坐标的电极
-        
-        // 第一步：查找坐标匹配的电极
-        currentElectrodes.forEach(([originalIndex, data]) => {
-          const electrodePos = data.pos;
-          let matched = false;
-          
-          // 检查是否与已有电极坐标匹配
-          for (const [existingIndex, pos] of Object.entries(processedElectrodes)) {
-            if (
-              Math.abs(electrodePos[0] - pos[0]) < 0.0001 &&
-              Math.abs(electrodePos[1] - pos[1]) < 0.0001 &&
-              Math.abs(electrodePos[2] - pos[2]) < 0.0001
-            ) {
-              // 找到匹配的电极，映射到已有索引
-              indexMapping[originalIndex] = parseInt(existingIndex, 10);
-              matchedElectrodes.add(originalIndex);
-              matched = true;
-              break;
-            }
-          }
-          
-          // 如果没有匹配，则分配新索引
-          if (!matched) {
-            const newIndex = maxElectrodeIndex + 1; // 使用局部变量来避免闭包问题
-            indexMapping[originalIndex] = newIndex;
-            
-            // 保存新电极坐标供后续查找
-            processedElectrodes[newIndex] = [...electrodePos];
-            
-            // 安全更新maxElectrodeIndex
-            maxElectrodeIndex = newIndex;
-          }
-        });
-        
-        console.log(`第${datasetIdx + 1}个数据集索引映射:`, indexMapping);
-        console.log(`匹配的电极数量: ${matchedElectrodes.size}/${currentElectrodes.length}`);
-        
-        // 应用映射，处理当前数据集
-        currentElectrodes.forEach(([originalIndex, data]) => {
-          const newIndex = indexMapping[originalIndex];
-          
-          // 如果是新电极，创建新电极数据
-          if (!mergedData[newIndex]) {
-            mergedData[newIndex] = {
-              pos: [...data.pos],
-              voltage: {}
-            };
-          }
-          
-          // 处理电压数据
-          Object.entries(data.voltage).forEach(([rowIdStr, values]) => {
-            const rowId = parseInt(rowIdStr, 10);
-            let newRowId = rowId;
-            
-            // 对行号也应用相同的映射规则（如果可以）
-            if (indexMapping[rowId.toString()]) {
-              // 如果行号可以映射到新索引，使用映射后的索引
-              newRowId = indexMapping[rowId.toString()];
-            } else {
-              // 否则使用偏移量确保不同数据集的行号不冲突
-              newRowId = rowId + datasetIdx * 1000;
-            }
-            
-            // 添加电压数据
-            mergedData[newIndex].voltage[newRowId] = values;
-          });
-        });
-      }
-      
-      // 创建新的数据集
-      // 收集被合并的数据集名称
-      const datasetNames = datasetsToMerge.map(ds => ds.name);
-      // 组合数据集名称（限制长度，避免太长）
-      const combinedName = datasetNames.length > 2 
-        ? `${datasetNames[0]}等${datasetNames.length}个数据集`
-        : datasetNames.join(' + ');
-        
-      const newDataset: MergedDataset = {
-        id: `dataset-${Date.now()}`,
-        name: mergedSetName,
-        timestamp: Date.now(),
-        datFileName: combinedName,  // 使用组合后的名称
-        csvFileName: combinedName,  // 使用组合后的名称
-        data: mergedData
-      };
-      
+    const newDataset = mergeDatasets(selectedDatasetIds, mergedDatasets, mergedSetName);
+    
+    if (newDataset) {
       // 添加到数据集列表并选中
       setMergedDatasets([...mergedDatasets, newDataset]);
       setSelectedDatasetId(newDataset.id);
-      setProcessedMapData(mergedData);
+      setProcessedMapData(newDataset.data);
       
       // 清除选择
       setSelectedDatasetIds(new Set());
       setMergeModalVisible(false);
-      message.success(`成功合并${datasetsToMerge.length}个数据集`);
-      
-    } catch (error: any) {
-      message.error(`合并失败: ${error.message}`);
     }
   };
 
@@ -843,7 +456,7 @@ const HomePage: React.FC = () => {
       render: (_: any, record: UploadFile) => (
         <Checkbox 
           checked={selectedFileUids.has(record.uid)}
-          onChange={(e) => handleFileSelect(record, e.target.checked)}
+          onChange={(e) => handleFileSelectWrapper(record, e.target.checked)}
           disabled={
             // 如果当前文件未选中且已经选择了同类型的文件，禁用复选框
             (!selectedFileUids.has(record.uid) && 
@@ -956,133 +569,18 @@ const HomePage: React.FC = () => {
   };
 
   // 导出数据集为两个文件（.dat和.csv），使用GBK编码
-  const exportDatasetFiles = (datasetId: string) => {
-    // 检查是否选择了所需的特殊电极
-    if (selectedBElectrodeIndex === null) {
-      message.warning('请先选择一个B极电极');
-      return;
-    }
-
-    if (selectedNElectrodeIndex === null) {
-      message.warning('请先选择一个N极电极');
-      return;
-    }
-    
-    const dataset = mergedDatasets.find(ds => ds.id === datasetId);
-    if (!dataset) {
-      message.error('找不到数据集');
-      return;
-    }
-    
-    try {
-      const dataToExport = dataset.data;
-      const electrodeNumbers = Object.keys(dataToExport)
-        .map(n => parseInt(n, 10))
-        .sort((a, b) => a - b);
-      
-      // 获取选中的特殊电极
-      const bElectrode = specialElectrodes[selectedBElectrodeIndex];
-      const nElectrode = specialElectrodes[selectedNElectrodeIndex];
-      
-      // 1. 导出DAT文件 - 电流和电压数据
-      let datContent = '电流\t  ,';
-      
-      // 创建DAT文件表头 - "电压N"
-      electrodeNumbers.forEach((n, idx) => {
-        datContent += `电压${n}\t  `;
-        if (idx < electrodeNumbers.length - 1) datContent += ',';
-      });
-      datContent += '\n';
-      
-      // 收集所有唯一的行ID，按照数字大小排序
-      const allRowIds = new Set<number>();
-      Object.values(dataToExport).forEach(electrode => {
-        Object.keys(electrode.voltage).forEach(rowId => {
-          allRowIds.add(parseInt(rowId, 10));
-        });
-      });
-      const sortedRowIds = Array.from(allRowIds).sort((a, b) => a - b);
-      
-      // 添加数据行
-      sortedRowIds.forEach(rowId => {
-        // 找到这一行的电流值（假设所有电极在同一行的电流值相同）
-        let currentValue = '';
-        for (const n of electrodeNumbers) {
-          const voltageData = dataToExport[n]?.voltage?.[rowId];
-          if (voltageData) {
-            currentValue = voltageData[0].toFixed(10);
-            break;
-          }
-        }
-        
-        datContent += `${currentValue},`;
-        
-        // 添加每个电极的电压值
-        electrodeNumbers.forEach((n, idx) => {
-          const voltageData = dataToExport[n]?.voltage?.[rowId];
-          const voltageValue = voltageData ? voltageData[1].toFixed(10) : '0.0000000';
-          datContent += voltageValue;
-          if (idx < electrodeNumbers.length - 1) datContent += ',';
-        });
-        datContent += '\n';
-      });
-      
-      // 2. 导出CSV文件 - 坐标数据
-      let csvContent = '索引,X(m),Y(m),Z(m)\n';
-      
-      // 添加电极坐标
-      electrodeNumbers.forEach(n => {
-        const pos = dataToExport[n].pos;
-        csvContent += `${n},${pos[0]},${pos[1]},${pos[2]}\n`;
-      });
-      
-      // 添加B极和N极坐标
-      csvContent += `B,${bElectrode.position[0]},${bElectrode.position[1]},${bElectrode.position[2]}\n`;
-      csvContent += `N,${nElectrode.position[0]},${nElectrode.position[1]},${nElectrode.position[2]}\n`;
-      
-      // 准备文件名（去除不合法字符）
-      const safeFileName = dataset.name.replace(/[^\w\u4e00-\u9fa5]/g, '_');
-      
-      // 转换为GBK编码
-      const datContentGBK = encoding.convert(datContent, 'GBK', 'UTF-8');
-      const csvContentGBK = encoding.convert(csvContent, 'GBK', 'UTF-8');
-      
-      // 创建并下载DAT文件 (使用GBK编码)
-      const datBlob = new Blob([datContentGBK], { type: 'application/octet-stream' });
-      const datUrl = URL.createObjectURL(datBlob);
-      const datLink = document.createElement('a');
-      datLink.href = datUrl;
-      datLink.download = `${safeFileName}.dat`;
-      datLink.style.display = 'none';
-      document.body.appendChild(datLink);
-      datLink.click();
-      
-      // 创建并下载CSV文件 (使用GBK编码)
-      const csvBlob = new Blob([csvContentGBK], { type: 'application/octet-stream' });
-      const csvUrl = URL.createObjectURL(csvBlob);
-      const csvLink = document.createElement('a');
-      csvLink.href = csvUrl;
-      csvLink.download = `${safeFileName}_坐标.csv`;
-      csvLink.style.display = 'none';
-      document.body.appendChild(csvLink);
-      csvLink.click();
-      
-      // 清理
-      setTimeout(() => {
-        document.body.removeChild(datLink);
-        document.body.removeChild(csvLink);
-        URL.revokeObjectURL(datUrl);
-        URL.revokeObjectURL(csvUrl);
-      }, 100);
-      
-      message.success(`已导出 ${safeFileName}.dat 和 ${safeFileName}_坐标.csv`);
-    } catch (error: any) {
-      message.error(`导出失败: ${error.message}`);
-    }
+  const handleExportDataset = (datasetId: string) => {
+    exportDatasetFiles(
+      datasetId,
+      mergedDatasets,
+      specialElectrodes,
+      selectedBElectrodeIndex,
+      selectedNElectrodeIndex
+    );
   };
 
-  // 添加删除文件的处理函数
-  const handleDeleteFile = (uid: string) => {
+  // 添加删除文件的处理函数 - 重命名以避免与导入的函数冲突
+  const handleFileRemoval = (uid: string) => {
     // 更新文件列表
     const updatedFiles = fileList.filter(file => file.uid !== uid);
     setFileList(updatedFiles);
@@ -1129,8 +627,8 @@ const HomePage: React.FC = () => {
         selectedCsvUid={selectedCsvUid}
         selectedFileUids={selectedFileUids}
         onFileListChange={setFileList}
-        onFileSelect={handleFileSelect}
-        onDeleteFile={handleDeleteFile}
+        onFileSelect={handleFileSelectWrapper}
+        onDeleteFile={handleDeleteFileWrapper}
         onClearSelection={clearSelection}
         onAssociateData={associateData}
         processing={processing}
@@ -1144,7 +642,7 @@ const HomePage: React.FC = () => {
         onDatasetDelete={deleteDataset}
         onDatasetCheckboxChange={handleDatasetCheckboxChange}
         onMergeSelectedDatasets={mergeSelectedDatasets}
-        onExportDataset={exportDatasetFiles}
+        onExportDataset={handleExportDataset}
       />
       
       {/* 替换为DataSummary组件 */}
