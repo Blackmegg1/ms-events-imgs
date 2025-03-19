@@ -32,7 +32,7 @@ const DataSummary: React.FC<DataSummaryProps> = ({
           {selectedDatFile?.name || '未选择'} + {selectedCsvFile?.name || '未选择'}
         </Descriptions.Item>
         <Descriptions.Item label="关联后数据点数">
-          {Object.values(processedMapData).reduce((count, data) => 
+          {(Object.values(processedMapData) as { voltage: Record<string, any> }[]).reduce((count: number, data) => 
             count + Object.keys(data.voltage).length, 0)}
         </Descriptions.Item>
         <Descriptions.Item label="特殊电极数量" span={2}>

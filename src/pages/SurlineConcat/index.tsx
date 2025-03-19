@@ -7,6 +7,7 @@ import * as encoding from 'encoding';
 // 修改导入路径，指向本地组件
 import FileUploader from './component/FileUploader';
 import DataSummary from './component/DataSummary';
+import DataPreview from './component/DataPreview';
 // 导入类型定义
 import { 
   DatDataMap, 
@@ -1281,42 +1282,15 @@ const HomePage: React.FC = () => {
       {/* 添加特殊电极列表组件 */}
       <SpecialElectrodesList />
       
-      {Object.keys(processedMapData).length > 0 && (
-        <Card 
-          title={
-            <div style={{ cursor: 'pointer' }} onClick={() => setTableExpanded(!tableExpanded)}>
-              {tableExpanded ? <DownOutlined /> : <RightOutlined />} 关联数据预览
-              {selectedDatasetId && (
-                <Tag color="blue" style={{ marginLeft: 8 }}>
-                  {mergedDatasets.find(ds => ds.id === selectedDatasetId)?.name || ''}
-                </Tag>
-              )}
-            </div>
-          }
-          extra={
-            <Button 
-              type="primary" 
-              icon={<SaveOutlined />}
-              onClick={saveCurrentResult}
-              disabled={Object.keys(processedMapData).length === 0}
-            >
-              保存当前关联结果
-            </Button>
-          }
-          style={{ marginBottom: 16 }}
-        >
-          {tableExpanded && (
-            <Table 
-              columns={getMatrixTableData().columns}
-              dataSource={getMatrixTableData().data} 
-              rowKey="rowId"
-              scroll={{ x: 'max-content' }}
-              pagination={false} // 禁用分页以便查看所有数据
-              bordered
-            />
-          )}
-        </Card>
-      )}
+      {/* 使用新的DataPreview组件 */}
+      <DataPreview 
+        processedMapData={processedMapData}
+        tableExpanded={tableExpanded}
+        setTableExpanded={setTableExpanded}
+        selectedDatasetId={selectedDatasetId}
+        mergedDatasets={mergedDatasets}
+        onSave={saveCurrentResult}
+      />
       
       {/* 保存数据集的模态框 */}
       <Modal
