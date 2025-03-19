@@ -4,59 +4,19 @@ import { useState } from 'react';
 import { InboxOutlined, DownOutlined, RightOutlined, CheckCircleOutlined, SaveOutlined, DeleteOutlined, MergeCellsOutlined } from '@ant-design/icons';
 // 需要安装: npm install encoding text-encoding
 import * as encoding from 'encoding';
-
-// 定义新的数据结构接口
-// 键为"N-行号"格式，值为[电流, 电压]数组
-type DatDataMap = Map<string, [number, number]>; // 保留原有格式用于解析
-
-// 使用Map存储CSV数据，键为索引，值为坐标数组[x,y,z]
-type CsvDataMap = Map<number, [number, number, number]>;
-
-// 定义processedMap的类型
-type ProcessedMapType = {
-  [key: number]: {
-    pos: [number, number, number],
-    voltage: {
-      [key: number]: [number, number] // 改为number类型键
-    }
-  }
-};
-
-// 表格数据展示使用的接口
-interface TableDisplayData {
-  key: string;
-  index: number;
-  x: number;
-  y: number;
-  z: number;
-  current: number;
-  voltage: number;
-  rowId: number; // 改为number类型
-}
-
-// 新的表格数据展示接口，适用于矩阵形式展示
-interface MatrixDisplayData {
-  rowId: string | number; // 修改为string|number，因为坐标行仍使用"x","y","z"
-  current: string; // 电流值
-  [electrodeName: string]: any; // 动态列，每列是一个电极
-}
-
-// 定义合并数据集类型
-interface MergedDataset {
-  id: string;
-  name: string;
-  timestamp: number;
-  datFileName: string;
-  csvFileName: string;
-  data: ProcessedMapType;
-}
-
-// 添加特殊电极类型
-type SpecialElectrode = {
-  type: string; // 'B' 或 'N'
-  position: [number, number, number];
-  fileSource: string; // 来源文件名
-};
+// 修改导入路径，指向本地组件
+import FileUploader from './component/FileUploader';
+import DataSummary from './component/DataSummary';
+// 导入类型定义
+import { 
+  DatDataMap, 
+  CsvDataMap, 
+  ProcessedMapType, 
+  TableDisplayData, 
+  MatrixDisplayData, 
+  MergedDataset, 
+  SpecialElectrode 
+} from './types';
 
 const { Dragger } = Upload;
 
@@ -190,6 +150,10 @@ const HomePage: React.FC = () => {
   const [selectedBElectrodeIndex, setSelectedBElectrodeIndex] = useState<number | null>(null);
   const [selectedNElectrodeIndex, setSelectedNElectrodeIndex] = useState<number | null>(null);
 
+  // 添加状态记录最后成功关联的文件名
+  const [lastDatFileName, setLastDatFileName] = useState<string>('');
+  const [lastCsvFileName, setLastCsvFileName] = useState<string>('');
+
   // 处理文件上传
   const handleUpload = ({ fileList }: { fileList: UploadFile[] }) => {
     setFileList(fileList);
@@ -319,6 +283,10 @@ const HomePage: React.FC = () => {
     setProcessing(true);
     
     try {
+      // 先保存当前选中的文件名
+      const currentDatFileName = selectedDatFile.name;
+      const currentCsvFileName = selectedCsvFile.name;
+      
       // 先解析CSV文件并获取结果
       message.info('正在解析CSV文件...');
       const csvResult = await processFile(selectedCsvFile) as { coordinates: CsvDataMap, specialElectrodes: SpecialElectrode[] };
@@ -363,6 +331,11 @@ const HomePage: React.FC = () => {
       
       // 设置processedMapData
       setProcessedMapData(processedMap);
+      
+      // 保存成功关联的文件名
+      setLastDatFileName(currentDatFileName);
+      setLastCsvFileName(currentCsvFileName);
+      
       message.success('数据关联成功！');
 
       // 自动清除选择
@@ -570,8 +543,8 @@ const HomePage: React.FC = () => {
       id: `dataset-${Date.now()}`,
       name: datasetName,
       timestamp: Date.now(),
-      datFileName: selectedDatFile?.name || '未知文件',
-      csvFileName: selectedCsvFile?.name || '未知文件',
+      datFileName: lastDatFileName || '未知文件',  // 使用保存的文件名
+      csvFileName: lastCsvFileName || '未知文件',  // 使用保存的文件名
       data: { ...processedMapData }
     };
     
@@ -793,12 +766,19 @@ const HomePage: React.FC = () => {
       }
       
       // 创建新的数据集
+      // 收集被合并的数据集名称
+      const datasetNames = datasetsToMerge.map(ds => ds.name);
+      // 组合数据集名称（限制长度，避免太长）
+      const combinedName = datasetNames.length > 2 
+        ? `${datasetNames[0]}等${datasetNames.length}个数据集`
+        : datasetNames.join(' + ');
+        
       const newDataset: MergedDataset = {
         id: `dataset-${Date.now()}`,
         name: mergedSetName,
         timestamp: Date.now(),
-        datFileName: '多个数据集合并',
-        csvFileName: '多个数据集合并',
+        datFileName: combinedName,  // 使用组合后的名称
+        csvFileName: combinedName,  // 使用组合后的名称
         data: mergedData
       };
       
@@ -1252,145 +1232,21 @@ const HomePage: React.FC = () => {
     );
   };
 
-  // 修改数据摘要卡片，显示已选择的B/N极
-  const renderDataSummary = () => {
-    return (
-      <Card title="数据摘要" style={{ marginBottom: 16 }}>
-        <Descriptions bordered>
-          <Descriptions.Item label=".dat 文件数据点数">{datData.size}</Descriptions.Item>
-          <Descriptions.Item label=".csv 文件坐标点数">{csvData.size}</Descriptions.Item>
-          <Descriptions.Item label="选中文件">
-            {selectedDatFile?.name || '未选择'} + {selectedCsvFile?.name || '未选择'}
-          </Descriptions.Item>
-          <Descriptions.Item label="关联后数据点数">
-            {Object.values(processedMapData).reduce((count, data) => 
-              count + Object.keys(data.voltage).length, 0)}
-          </Descriptions.Item>
-          <Descriptions.Item label="特殊电极数量" span={2}>
-            {specialElectrodes.length} (B: {specialElectrodes.filter(e => e.type === 'B').length}, 
-            N: {specialElectrodes.filter(e => e.type === 'N').length})
-          </Descriptions.Item>
-          <Descriptions.Item label="导出所需电极" span={3}>
-            <Space>
-              B极: {selectedBElectrodeIndex !== null ? (
-                <Tag color="blue">已选择 ({specialElectrodes[selectedBElectrodeIndex].position.join(', ')})</Tag>
-              ) : (
-                <Tag color="red">未选择</Tag>
-              )}
-              N极: {selectedNElectrodeIndex !== null ? (
-                <Tag color="green">已选择 ({specialElectrodes[selectedNElectrodeIndex].position.join(', ')})</Tag>
-              ) : (
-                <Tag color="red">未选择</Tag>
-              )}
-            </Space>
-          </Descriptions.Item>
-        </Descriptions>
-      </Card>
-    );
-  };
-
-  // 自定义文件列表渲染
-  const renderFileList = () => {
-    return (
-      <Table
-        columns={[
-          {
-            title: '选择',
-            dataIndex: 'select',
-            key: 'select',
-            width: 60,
-            render: (_: any, record: UploadFile) => (
-              <Checkbox 
-                checked={selectedFileUids.has(record.uid)}
-                onChange={(e) => handleFileSelect(record, e.target.checked)}
-                disabled={
-                  (!selectedFileUids.has(record.uid) && 
-                  ((record.name.endsWith('.dat') && selectedDatUid !== null) ||
-                    (record.name.endsWith('.csv') && selectedCsvUid !== null))) ||
-                  !(record.name.endsWith('.dat') || record.name.endsWith('.csv'))
-                }
-              />
-            ),
-          },
-          {
-            title: '文件名',
-            dataIndex: 'name',
-            key: 'name',
-            render: (name: string, record: UploadFile) => (
-              <Space>
-                {name}
-                {record.uid === selectedDatUid && <Tag color="blue"><CheckCircleOutlined /> 已选择(.dat)</Tag>}
-                {record.uid === selectedCsvUid && <Tag color="green"><CheckCircleOutlined /> 已选择(.csv)</Tag>}
-              </Space>
-            ),
-          },
-          {
-            title: '大小',
-            dataIndex: 'size',
-            key: 'size',
-            render: (size: number) => `${(size / 1024).toFixed(2)} KB`,
-          },
-          {
-            title: '操作',
-            key: 'action',
-            width: 80,
-            render: (_: any, record: UploadFile) => (
-              <Button
-                type="text"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => handleDeleteFile(record.uid)}
-              />
-            ),
-          }
-        ]}
-        dataSource={fileList}
-        rowKey="uid"
-        size="small"
-        pagination={false}
-      />
-    );
-  };
-
   return (
     <PageContainer ghost>
-      <Card title="文件上传" style={{ marginBottom: 16 }}>
-        <Dragger
-          multiple
-          fileList={fileList}
-          onChange={handleUpload}
-          beforeUpload={() => false} // 阻止自动上传
-          showUploadList={false} // 隐藏默认的上传列表
-        >
-          <p className="ant-upload-drag-icon">
-            <InboxOutlined />
-          </p>
-          <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
-          <p className="ant-upload-hint">支持上传 .dat 和 .csv 格式的电测测线数据和坐标文件</p>
-        </Dragger>
-        
-        <Divider />
-        
-        <Space style={{ marginBottom: 16 }}>
-          <Button 
-            type="primary" 
-            onClick={associateData} 
-            disabled={!selectedDatFile || !selectedCsvFile || processing}
-          >
-            关联选中的文件
-          </Button>
-          <Button 
-            danger 
-            onClick={clearSelection}
-            disabled={!selectedDatFile && !selectedCsvFile}
-          >
-            清除选择
-          </Button>
-        </Space>
-        
-        {/* 使用自定义文件列表 */}
-        {fileList.length > 0 && renderFileList()}
-      </Card>
+      {/* 替换原来的上传组件为新组件 */}
+      <FileUploader
+        fileList={fileList}
+        selectedDatUid={selectedDatUid}
+        selectedCsvUid={selectedCsvUid}
+        selectedFileUids={selectedFileUids}
+        onFileListChange={setFileList}
+        onFileSelect={handleFileSelect}
+        onDeleteFile={handleDeleteFile}
+        onClearSelection={clearSelection}
+        onAssociateData={associateData}
+        processing={processing}
+      />
       
       <Card title="已关联的数据集" style={{ marginBottom: 16 }}>
         <Space style={{ marginBottom: 16 }}>
@@ -1410,7 +1266,17 @@ const HomePage: React.FC = () => {
         {renderDatasetList()}
       </Card>
       
-      {renderDataSummary()}
+      {/* 替换为DataSummary组件 */}
+      <DataSummary 
+        datData={datData}
+        csvData={csvData}
+        processedMapData={processedMapData}
+        selectedDatFile={selectedDatFile}
+        selectedCsvFile={selectedCsvFile}
+        specialElectrodes={specialElectrodes}
+        selectedBElectrodeIndex={selectedBElectrodeIndex}
+        selectedNElectrodeIndex={selectedNElectrodeIndex}
+      />
       
       {/* 添加特殊电极列表组件 */}
       <SpecialElectrodesList />
