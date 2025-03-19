@@ -17,7 +17,7 @@ import {
   CsvDataMap, 
   ProcessedMapType, 
   TableDisplayData, 
-  MatrixDisplayData, 
+  // 删除未使用的类型
   MergedDataset, 
   SpecialElectrode 
 } from './types';
@@ -74,11 +74,6 @@ const HomePage: React.FC = () => {
   // 添加状态记录最后成功关联的文件名
   const [lastDatFileName, setLastDatFileName] = useState<string>('');
   const [lastCsvFileName, setLastCsvFileName] = useState<string>('');
-
-  // 处理文件上传
-  const handleUpload = ({ fileList }: { fileList: UploadFile[] }) => {
-    setFileList(fileList);
-  };
 
   // 使用导入的工具函数处理文件选择
   const handleFileSelectWrapper = (file: UploadFile, checked: boolean) => {
@@ -201,135 +196,6 @@ const HomePage: React.FC = () => {
     }
   };
 
-  // 将processedMapData转换为表格可显示的格式
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const getTableData = (): TableDisplayData[] => {
-    const tableData: TableDisplayData[] = [];
-    
-    Object.entries(processedMapData).forEach(([indexStr, data]) => {
-      const index = parseInt(indexStr, 10);
-      const [x, y, z] = data.pos;
-      
-      // 将每个电压点展开为单独的表格行
-      Object.entries(data.voltage).forEach(([rowIdStr, [current, voltage]]) => {
-        const rowId = parseInt(rowIdStr, 10); // 将行号解析为数字
-        tableData.push({
-          key: `${index}-${rowId}`,
-          index,
-          x,
-          y,
-          z,
-          current,
-          voltage,
-          rowId
-        });
-      });
-    });
-    
-    return tableData;
-  };
-
-  // 将processedMapData转换为矩阵表格格式
-  const getMatrixTableData = (): { data: MatrixDisplayData[], columns: any[] } => {
-    // 如果没有数据，返回空结果
-    if (Object.keys(processedMapData).length === 0) {
-      return { data: [], columns: [] };
-    }
-
-    // 获取所有电极编号并排序
-    const electrodeNumbers = Object.keys(processedMapData)
-      .map(n => parseInt(n, 10))
-      .sort((a, b) => a - b);
-
-    // 创建表格列配置
-    const tableColumns = [
-      {
-        title: '行号',
-        dataIndex: 'rowId',
-        key: 'rowId',
-        fixed: 'left',
-        width: 80,
-      },
-      {
-        title: '电流',
-        dataIndex: 'current',
-        key: 'current', 
-        fixed: 'left',
-        width: 100,
-      },
-      ...electrodeNumbers.map(n => ({
-        title: `电极${n}`,
-        dataIndex: `electrode${n}`,
-        key: `electrode${n}`,
-      })),
-    ];
-
-    // 创建坐标行数据
-    const xRow: MatrixDisplayData = { rowId: 'x', current: '' };
-    const yRow: MatrixDisplayData = { rowId: 'y', current: '' };
-    const zRow: MatrixDisplayData = { rowId: 'z', current: '' };
-
-    // 填充坐标数据
-    electrodeNumbers.forEach(n => {
-      const pos = processedMapData[n].pos;
-      xRow[`electrode${n}`] = pos[0];
-      yRow[`electrode${n}`] = pos[1];
-      zRow[`electrode${n}`] = pos[2];
-    });
-
-    // 收集所有唯一的行号
-    const allRowIds = new Set<number>();
-    Object.values(processedMapData).forEach(electrode => {
-      Object.keys(electrode.voltage).forEach(rowId => {
-        allRowIds.add(parseInt(rowId, 10)); // 将字符串行号转换为数字
-      });
-    });
-
-    // 将行号排序
-    const sortedRowIds = Array.from(allRowIds).sort((a, b) => a - b);
-
-    // 创建数据行
-    const dataRows: MatrixDisplayData[] = sortedRowIds.map(rowId => {
-      // 找到这一行的第一个有效电流值（所有电极在同一行的电流值应该相同）
-      let currentValue = '';
-      for (const n of electrodeNumbers) {
-        const voltageData = processedMapData[n]?.voltage?.[rowId];
-        if (voltageData) {
-          currentValue = voltageData[0].toString();
-          break;
-        }
-      }
-
-      const row: MatrixDisplayData = { 
-        rowId,
-        current: currentValue 
-      };
-      
-      // 填充每个电极的电压数据(不再包括电流)
-      electrodeNumbers.forEach(n => {
-        const voltageData = processedMapData[n]?.voltage?.[rowId];
-        if (voltageData) {
-          // 只显示电压值
-          row[`electrode${n}`] = voltageData[1];
-        } else {
-          row[`electrode${n}`] = '-'; // 没有数据时显示短横线
-        }
-      });
-      
-      return row;
-    });
-
-    // 组合所有行
-    const tableData = [
-      xRow,
-      yRow,
-      zRow,
-      ...dataRows
-    ];
-
-    return { data: tableData, columns: tableColumns };
-  };
-
   // 保存当前关联结果
   const saveCurrentResult = () => {
     if (Object.keys(processedMapData).length === 0) {
@@ -445,95 +311,6 @@ const HomePage: React.FC = () => {
     }
   };
 
-  // 表格列定义 - 修改为使用复选框
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const columns = [
-    {
-      title: '选择',
-      dataIndex: 'select',
-      key: 'select',
-      width: 60,
-      render: (_: any, record: UploadFile) => (
-        <Checkbox 
-          checked={selectedFileUids.has(record.uid)}
-          onChange={(e) => handleFileSelectWrapper(record, e.target.checked)}
-          disabled={
-            // 如果当前文件未选中且已经选择了同类型的文件，禁用复选框
-            (!selectedFileUids.has(record.uid) && 
-             ((record.name.endsWith('.dat') && selectedDatUid !== null) ||
-              (record.name.endsWith('.csv') && selectedCsvUid !== null))) ||
-            // 或者不是.dat或.csv文件
-            !(record.name.endsWith('.dat') || record.name.endsWith('.csv'))
-          }
-        />
-      ),
-    },
-    {
-      title: '文件名',
-      dataIndex: 'name',
-      key: 'name',
-      render: (name: string, record: UploadFile) => (
-        <Space>
-          {name}
-          {record.uid === selectedDatUid && <Tag color="blue"><CheckCircleOutlined /> 已选择(.dat)</Tag>}
-          {record.uid === selectedCsvUid && <Tag color="green"><CheckCircleOutlined /> 已选择(.csv)</Tag>}
-        </Space>
-      ),
-    },
-    {
-      title: '大小',
-      dataIndex: 'size',
-      key: 'size',
-      render: (size: number) => `${(size / 1024).toFixed(2)} KB`,
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-    }
-    // 删除操作列，不再需要解析和选择按钮
-  ];
-
-  // 更新合并数据的表格列定义
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const combinedColumns = [
-    {
-      title: '索引',
-      dataIndex: 'index',
-      key: 'index',
-    },
-    {
-      title: 'X(m)',
-      dataIndex: 'x',
-      key: 'x',
-    },
-    {
-      title: 'Y(m)',
-      dataIndex: 'y',
-      key: 'y',
-    },
-    {
-      title: 'Z(m)',
-      dataIndex: 'z',
-      key: 'z',
-    },
-    {
-      title: '行号',
-      dataIndex: 'rowId',
-      key: 'rowId',
-    },
-    {
-      title: '电流',
-      dataIndex: 'current',
-      key: 'current',
-    },
-    {
-      title: '电压',
-      dataIndex: 'voltage',
-      key: 'voltage',
-    }
-  ];
-
   // 修改特殊电极选择处理函数
   const handleSpecialElectrodeSelect = (index: number, checked: boolean) => {
     const electrode = specialElectrodes[index];
@@ -577,27 +354,6 @@ const HomePage: React.FC = () => {
       selectedBElectrodeIndex,
       selectedNElectrodeIndex
     );
-  };
-
-  // 添加删除文件的处理函数 - 重命名以避免与导入的函数冲突
-  const handleFileRemoval = (uid: string) => {
-    // 更新文件列表
-    const updatedFiles = fileList.filter(file => file.uid !== uid);
-    setFileList(updatedFiles);
-
-    // 如果删除的是已选择的文件，清除相应选择状态
-    if (uid === selectedDatUid) {
-      setSelectedDatUid(null);
-      setSelectedDatFile(null);
-    } else if (uid === selectedCsvUid) {
-      setSelectedCsvUid(null);
-      setSelectedCsvFile(null);
-    }
-
-    // 从选中集合中移除
-    const newSelectedFileUids = new Set(selectedFileUids);
-    newSelectedFileUids.delete(uid);
-    setSelectedFileUids(newSelectedFileUids);
   };
 
   // 添加处理删除特殊电极的函数
