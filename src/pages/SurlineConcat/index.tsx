@@ -8,6 +8,7 @@ import * as encoding from 'encoding';
 import FileUploader from './component/FileUploader';
 import DataSummary from './component/DataSummary';
 import DataPreview from './component/DataPreview';
+import DatasetList from './component/DatasetList';
 // 导入类型定义
 import { 
   DatDataMap, 
@@ -1173,66 +1174,6 @@ const HomePage: React.FC = () => {
     );
   };
 
-  // 修改数据集列表，添加导出按钮
-  const renderDatasetList = () => {
-    return (
-      <List
-        bordered
-        dataSource={mergedDatasets}
-        renderItem={item => (
-          <List.Item
-            key={item.id}
-            actions={[
-              <Button 
-                key="export"
-                type="link" 
-                onClick={() => exportDatasetFiles(item.id)}
-                title="必须选择一个B极和一个N极才能导出"
-              >
-                导出
-              </Button>,
-              <Button key="view" type="link" onClick={() => selectDataset(item.id)}>查看</Button>,
-              <Button key="delete" type="link" danger onClick={() => deleteDataset(item.id)}><DeleteOutlined /></Button>
-            ]}
-            style={{ 
-              backgroundColor: item.id === selectedDatasetId ? '#e6f7ff' : 'transparent'
-            }}
-          >
-            <Checkbox
-              checked={selectedDatasetIds.has(item.id)}
-              onChange={(e) => handleDatasetCheckboxChange(item.id, e.target.checked)}
-              style={{ marginRight: 12 }}
-            />
-            <List.Item.Meta
-              title={<Typography.Text strong>{item.name}</Typography.Text>}
-              description={
-                <Space direction="vertical" size="small">
-                  <Typography.Text type="secondary">
-                    合并于: {new Date(item.timestamp).toLocaleString('zh-CN')}
-                  </Typography.Text>
-                  <Typography.Text type="secondary">
-                    文件: {item.datFileName} + {item.csvFileName}
-                  </Typography.Text>
-                  <Typography.Text type="secondary">
-                    数据点数: {
-                      Object.values(item.data).reduce(
-                        (count, data) => count + Object.keys(data.voltage).length, 0
-                      )
-                    }
-                  </Typography.Text>
-                </Space>
-              }
-            />
-            {item.id === selectedDatasetId && (
-              <Tag color="blue">当前选中</Tag>
-            )}
-          </List.Item>
-        )}
-        locale={{ emptyText: '暂无保存的数据集，请合并并保存数据' }}
-      />
-    );
-  };
-
   return (
     <PageContainer ghost>
       {/* 替换原来的上传组件为新组件 */}
@@ -1249,23 +1190,16 @@ const HomePage: React.FC = () => {
         processing={processing}
       />
       
-      <Card title="已关联的数据集" style={{ marginBottom: 16 }}>
-        <Space style={{ marginBottom: 16 }}>
-          <Button
-            type="primary"
-            icon={<MergeCellsOutlined />}
-            onClick={mergeSelectedDatasets}
-            disabled={selectedDatasetIds.size < 2}
-          >
-            合并电法数据
-          </Button>
-          <Typography.Text type="secondary">
-            {selectedDatasetIds.size > 0 ? `已选择 ${selectedDatasetIds.size} 个数据集` : '选择多个数据集进行合并'}
-          </Typography.Text>
-        </Space>
-        
-        {renderDatasetList()}
-      </Card>
+      <DatasetList 
+        mergedDatasets={mergedDatasets}
+        selectedDatasetId={selectedDatasetId}
+        selectedDatasetIds={selectedDatasetIds}
+        onDatasetSelect={selectDataset}
+        onDatasetDelete={deleteDataset}
+        onDatasetCheckboxChange={handleDatasetCheckboxChange}
+        onMergeSelectedDatasets={mergeSelectedDatasets}
+        onExportDataset={exportDatasetFiles}
+      />
       
       {/* 替换为DataSummary组件 */}
       <DataSummary 
