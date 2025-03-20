@@ -47,7 +47,7 @@ export const exportDatasetFiles = (
       datContent += `电压${n}\t  `;
       if (idx < electrodeNumbers.length - 1) datContent += ',';
     });
-    datContent += '\n';
+    datContent += '\r\n';
     
     // 收集所有唯一的行ID，按照数字大小排序
     const allRowIds = new Set<number>();
@@ -70,30 +70,30 @@ export const exportDatasetFiles = (
         }
       }
       
-      datContent += `${currentValue},`;
+      datContent += `${currentValue}\t,`;
       
       // 添加每个电极的电压值
       electrodeNumbers.forEach((n, idx) => {
         const voltageData = dataToExport[n]?.voltage?.[rowId];
         const voltageValue = voltageData ? voltageData[1].toFixed(10) : '0.0000000';
         datContent += voltageValue;
-        if (idx < electrodeNumbers.length - 1) datContent += ',';
+        if (idx < electrodeNumbers.length - 1) datContent += '\t,';
       });
-      datContent += '\n';
+      datContent += '\r\n';
     });
     
     // 2. 导出CSV文件 - 坐标数据
-    let csvContent = '索引,X(m),Y(m),Z(m)\n';
+    let csvContent = '序号,X(m),Y(m),Z(m)\r\n';
     
     // 添加电极坐标
     electrodeNumbers.forEach(n => {
       const pos = dataToExport[n].pos;
-      csvContent += `${n},${pos[0]},${pos[1]},${pos[2]}\n`;
+      csvContent += `${n},${pos[0]},${pos[1]},${pos[2]}\r\n`;
     });
     
     // 添加B极和N极坐标
-    csvContent += `B,${bElectrode.position[0]},${bElectrode.position[1]},${bElectrode.position[2]}\n`;
-    csvContent += `N,${nElectrode.position[0]},${nElectrode.position[1]},${nElectrode.position[2]}\n`;
+    csvContent += `B,${bElectrode.position[0]},${bElectrode.position[1]},${bElectrode.position[2]}\r\n`;
+    csvContent += `N,${nElectrode.position[0]},${nElectrode.position[1]},${nElectrode.position[2]}\r\n`;
     
     // 准备文件名（去除不合法字符）
     const safeFileName = dataset.name.replace(/[^\w\u4e00-\u9fa5]/g, '_');
