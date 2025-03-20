@@ -32,116 +32,34 @@ export const mergeDatasets = (
       return aIndex - bIndex;
     });
 
-    // 存储所有已处理的电极坐标，用于后续查找匹配
-    const processedElectrodes: {[key: number]: [number, number, number]} = {};
+    // 记录当前最新的电极索引，用于分配新索引
+    let currentElectrodeIndex = 0;
     
-    // 记录最大的电极索引，用于生成新的连续索引
-    let maxElectrodeIndex = 0;
-    
-    // 处理第一个数据集作为基准
-    const firstDataset = datasetsToMerge[0];
-    const firstDatasetElectrodes = Object.entries(firstDataset.data);
-    
-    // 为第一个数据集创建索引映射
-    const firstIndexMapping: {[originalIndex: string]: number} = {};
-    let newElectrodeIndex = 1; // 从1开始编号
-    
-    // 第一个数据集的电极从1开始重新编号
-    firstDatasetElectrodes.forEach(([originalIndex, _]) => {
-      firstIndexMapping[originalIndex] = newElectrodeIndex++;
-    });
-    
-    console.log('第一个数据集索引映射:', firstIndexMapping);
-    
-    // 应用第一个数据集的映射
-    firstDatasetElectrodes.forEach(([originalIndex, data]) => {
-      const newIndex = firstIndexMapping[originalIndex];
-      
-      // 保存电极坐标用于后续匹配
-      processedElectrodes[newIndex] = [...data.pos];
-      
-      // 复制位置数据到合并结果
-      mergedData[newIndex] = {
-        pos: [...data.pos],
-        voltage: {}
-      };
-      
-      // 处理电压数据，同时调整行号
-      Object.entries(data.voltage).forEach(([rowIdStr, values]) => {
-        const rowId = parseInt(rowIdStr, 10);
-        let newRowId = rowId;
-        
-        // 对行号也应用相同的映射规则（如果可以）
-        if (firstIndexMapping[rowId.toString()]) {
-          newRowId = firstIndexMapping[rowId.toString()];
-        }
-        
-        // 添加电压数据
-        mergedData[newIndex].voltage[newRowId] = values;
-      });
-      
-      // 更新最大电极索引
-      if (newIndex > maxElectrodeIndex) {
-        maxElectrodeIndex = newIndex;
-      }
-    });
-    
-    // 处理其余数据集
-    for (let datasetIdx = 1; datasetIdx < datasetsToMerge.length; datasetIdx++) {
+    // 处理所有数据集
+    for (let datasetIdx = 0; datasetIdx < datasetsToMerge.length; datasetIdx++) {
       const currentDataset = datasetsToMerge[datasetIdx];
       const currentElectrodes = Object.entries(currentDataset.data);
       
-      // 为当前数据集创建映射关系
+      // 为当前数据集创建索引映射
       const indexMapping: {[originalIndex: string]: number} = {};
-      const matchedElectrodes: Set<string> = new Set(); // 记录已匹配到坐标的电极
       
-      // 第一步：查找坐标匹配的电极
-      currentElectrodes.forEach(([originalIndex, data]) => {
-        const electrodePos = data.pos;
-        let matched = false;
-        
-        // 检查是否与已有电极坐标匹配
-        for (const [existingIndex, pos] of Object.entries(processedElectrodes)) {
-          if (
-            Math.abs(electrodePos[0] - pos[0]) < 0.0001 &&
-            Math.abs(electrodePos[1] - pos[1]) < 0.0001 &&
-            Math.abs(electrodePos[2] - pos[2]) < 0.0001
-          ) {
-            // 找到匹配的电极，映射到已有索引
-            indexMapping[originalIndex] = parseInt(existingIndex, 10);
-            matchedElectrodes.add(originalIndex);
-            matched = true;
-            break;
-          }
-        }
-        
-        // 如果没有匹配，则分配新索引
-        if (!matched) {
-          const newIndex = maxElectrodeIndex + 1; // 使用局部变量来避免闭包问题
-          indexMapping[originalIndex] = newIndex;
-          
-          // 保存新电极坐标供后续查找
-          processedElectrodes[newIndex] = [...electrodePos];
-          
-          // 安全更新maxElectrodeIndex
-          maxElectrodeIndex = newIndex;
-        }
+      // 为所有电极分配新索引，不考虑坐标匹配
+      currentElectrodes.forEach(([originalIndex, _]) => {
+        currentElectrodeIndex++;
+        indexMapping[originalIndex] = currentElectrodeIndex;
       });
       
       console.log(`第${datasetIdx + 1}个数据集索引映射:`, indexMapping);
-      console.log(`匹配的电极数量: ${matchedElectrodes.size}/${currentElectrodes.length}`);
       
       // 应用映射，处理当前数据集
       currentElectrodes.forEach(([originalIndex, data]) => {
         const newIndex = indexMapping[originalIndex];
         
-        // 如果是新电极，创建新电极数据
-        if (!mergedData[newIndex]) {
-          mergedData[newIndex] = {
-            pos: [...data.pos],
-            voltage: {}
-          };
-        }
+        // 创建新电极数据
+        mergedData[newIndex] = {
+          pos: [...data.pos],
+          voltage: {}
+        };
         
         // 处理电压数据
         Object.entries(data.voltage).forEach(([rowIdStr, values]) => {
