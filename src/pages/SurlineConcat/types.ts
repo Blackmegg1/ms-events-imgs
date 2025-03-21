@@ -50,3 +50,5 @@ export type SpecialElectrode = {
   position: [number, number, number];
   fileSource: string; // 来源文件名
 };
+
+export type SensorDataEntry = [string | number, number, number, number];
