@@ -17,7 +17,15 @@ export const parseDatFile = (content: string): DatDataMap => {
   
   // 处理表头行，提取"电压N"中的N值
   const headerLine = lines[0];
-  const headers = headerLine.split(',').map(h => h.trim());
+  let isT = false;
+  if (!headerLine.includes(','))
+    isT = true;
+  ;
+  let headers: string[];
+  if (isT) 
+    headers = headerLine.split('\t').map(h => h.trim());
+  else
+    headers = headerLine.split(',').map(h => h.trim());
   const voltageIndices: number[] = [];
   
   // 查找所有表头中包含"电压"的列，并提取N值
@@ -35,7 +43,12 @@ export const parseDatFile = (content: string): DatDataMap => {
   
   // 处理数据行
   for (let rowIdx = 1; rowIdx < lines.length; rowIdx++) {
-    const rowValues = lines[rowIdx].split(',').map(v => parseFloat(v.trim()));
+    let rowValues: number[];
+    if (isT) 
+      rowValues = lines[rowIdx].split('\t').map(v => parseFloat(v.trim()));
+    else
+      rowValues = lines[rowIdx].split(',').map(v => parseFloat(v.trim()));
+    
     
     // 确保有足够的数据
     if (rowValues.length < 2) continue;
