@@ -49,6 +49,8 @@ export type SpecialElectrode = {
   type: string; // 'B' 或 'N'
   position: [number, number, number];
   fileSource: string; // 来源文件名
+  datasetSource?: string; // 来源数据集名称
+  datasetId?: string; // 来源数据集ID
 };
 
 export type SensorDataEntry = [string | number, number, number, number];

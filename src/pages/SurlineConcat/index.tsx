@@ -230,6 +230,24 @@ const HomePage: React.FC = () => {
       setLastDatFileName(currentDatFileName);
       setLastCsvFileName(currentCsvFileName);
 
+      // 为新解析的特殊电极添加临时关联标记
+      const tempAssociationId = `temp-${Date.now()}`;
+      const associationTime = new Date().toLocaleString('zh-CN');
+      
+      setSpecialElectrodes(prevElectrodes => 
+        prevElectrodes.map(electrode => {
+          // 检查是否是当前CSV文件的电极且没有关联
+          if (electrode.fileSource === currentCsvFileName && !electrode.datasetId) {
+            return {
+              ...electrode,
+              datasetSource: `临时关联 (${associationTime})`,
+              datasetId: tempAssociationId
+            };
+          }
+          return electrode;
+        })
+      );
+
       message.success('数据关联成功！');
 
       // 自动清除选择
@@ -276,9 +294,27 @@ const HomePage: React.FC = () => {
       data: { ...processedMapData },
     };
 
+    // 更新特殊电极的数据集关联信息
+    setSpecialElectrodes(prevElectrodes => 
+      prevElectrodes.map(electrode => {
+        // 判断条件：
+        // 1. 来自当前CSV文件的电极
+        // 2. 没有数据集关联 或 只有临时关联
+        if (electrode.fileSource === lastCsvFileName && 
+            (!electrode.datasetId || electrode.datasetId.startsWith('temp-'))) {
+          return {
+            ...electrode,
+            datasetSource: datasetName,
+            datasetId: newDataset.id
+          };
+        }
+        return electrode;
+      })
+    );
+
     setMergedDatasets([...mergedDatasets, newDataset]);
     setSelectedDatasetId(newDataset.id);
-    message.success(`数据集 "${datasetName}" 已保存`);
+    message.success(`数据集 "${datasetName}" 已保存，特殊电极已关联`);
     setSaveModalVisible(false);
   };
 
@@ -308,6 +344,18 @@ const HomePage: React.FC = () => {
           setSelectedDatasetId(null);
           setProcessedMapData({});
         }
+
+        // 清除已删除数据集关联的特殊电极信息
+        setSpecialElectrodes(prevElectrodes => 
+          prevElectrodes.map(electrode => {
+            if (electrode.datasetId === datasetId) {
+              // 移除关联信息，但保留电极
+              const { datasetId: _, datasetSource: __, ...rest } = electrode;
+              return rest as SpecialElectrode;
+            }
+            return electrode;
+          })
+        );
 
         message.success('数据集已删除');
       },
