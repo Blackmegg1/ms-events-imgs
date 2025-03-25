@@ -171,71 +171,44 @@ export const mergeDatasets = (
               // 获取该数据集在合并数据集中的行号范围
               const indexRange = datasetRanges[relatedDatasetId];
               
-              // 查找特殊电极的位置最接近哪个原始电极
-              let closestOrigIndex: string | null = null;
-              let closestMappedIndex: number | null = null;
-              let minDistance = Number.MAX_VALUE;
-              
               // 检查与该电极关联的数据集是否有映射关系
               if (indexMappingByDataset[relatedDatasetId]) {
-                // 对原始数据集的每个电极进行距离计算
-                const originalDataset = mergedDatasets.find(ds => ds.id === relatedDatasetId);
-                if (originalDataset) {
-                  Object.entries(originalDataset.data)
-                    .forEach(([origIndex, data]) => {
-                      const distance = Math.sqrt(
-                        Math.pow(data.pos[0] - electrode.position[0], 2) +
-                        Math.pow(data.pos[1] - electrode.position[1], 2) +
-                        Math.pow(data.pos[2] - electrode.position[2], 2)
-                      );
-                      
-                      if (distance < minDistance) {
-                        minDistance = distance;
-                        closestOrigIndex = origIndex;
-                        // 找到映射后的索引
-                        closestMappedIndex = indexMappingByDataset[relatedDatasetId][origIndex];
-                      }
-                    });
+                // 获取电极在原始数据集中的行号范围
+                const originalElectrodeRange = electrode.mappings?.find(
+                  mapping => mapping.datasetId === relatedDatasetId
+                )?.indexRange || [0, 0];
                 
-                  // 如果找到了最接近的电极，记录映射关系
-                  if (closestMappedIndex !== null && closestOrigIndex !== null) {
-                    mappedCount++;
-                    
-                    // 获取所有相关的行号（在合并数据集中的实际行号）
-                    const relevantRows: number[] = [];
-                    
-                    // 1. 添加该电极本身的行号
-                    relevantRows.push(closestMappedIndex);
-                    
-                    // 2. 查找该电极在电压数据中作为"行"出现的行号 
-                    if (originalDataset.data[parseInt(closestOrigIndex)]?.voltage) {
-                      const voltageRows = Object.keys(originalDataset.data[parseInt(closestOrigIndex)].voltage)
-                        .map(rowId => parseInt(rowId));
-                      
-                      // 将这些行ID映射到合并后的行号
-                      for (const rowId of voltageRows) {
-                        if (indexMappingByDataset[relatedDatasetId][rowId.toString()]) {
-                          relevantRows.push(indexMappingByDataset[relatedDatasetId][rowId.toString()]);
-                        }
-                      }
-                    }
-                    
-                    // 对行号排序，以确保范围正确
-                    relevantRows.sort((a, b) => a - b);
-                    
+                if (originalElectrodeRange && originalElectrodeRange[0] && originalElectrodeRange[1]) {
+                  // 映射原始行号范围到新的行号范围
+                  const startMapped = indexMappingByDataset[relatedDatasetId][originalElectrodeRange[0].toString()];
+                  const endMapped = indexMappingByDataset[relatedDatasetId][originalElectrodeRange[1].toString()];
+                  
+                  // 如果可以找到映射的行号
+                  if (startMapped && endMapped) {
                     // 创建映射信息
                     mappings.push({
                       datasetId: newDataset.id,
                       datasetName: newDataset.name,
-                      mappedIndex: closestMappedIndex,
-                      indexRange: relevantRows.length > 0 
-                        ? [relevantRows[0], relevantRows[relevantRows.length - 1]]
-                        : indexRange  // 如果没有找到相关行号，仍使用数据集范围
+                      mappedIndex: startMapped, // 使用起始行作为主映射索引
+                      indexRange: [startMapped, endMapped]
                     });
-                    
-                    // 每个数据集只需要添加一次映射
-                    break;
+                  } else {
+                    // 如果无法直接映射行号，使用整个数据集的行号范围
+                    mappings.push({
+                      datasetId: newDataset.id,
+                      datasetName: newDataset.name,
+                      mappedIndex: indexRange[0], // 使用数据集起始行
+                      indexRange: indexRange
+                    });
                   }
+                } else {
+                  // 如果没有原始行号范围，使用整个数据集的行号范围
+                  mappings.push({
+                    datasetId: newDataset.id,
+                    datasetName: newDataset.name,
+                    mappedIndex: indexRange[0],
+                    indexRange: indexRange
+                  });
                 }
               }
             }
