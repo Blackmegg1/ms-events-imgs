@@ -96,12 +96,8 @@ const HomePage: React.FC = () => {
   >(new Set());
 
   // 添加状态记录选择的B极和N极
-  const [selectedBElectrodeIndex, setSelectedBElectrodeIndex] = useState<
-    number | null
-  >(null);
-  const [selectedNElectrodeIndex, setSelectedNElectrodeIndex] = useState<
-    number | null
-  >(null);
+  const [selectedBElectrodeIndices, setSelectedBElectrodeIndices] = useState<Set<number>>(new Set());
+  const [selectedNElectrodeIndices, setSelectedNElectrodeIndices] = useState<Set<number>>(new Set());
 
   // 添加状态记录最后成功关联的文件名
   const [lastDatFileName, setLastDatFileName] = useState<string>('');
@@ -234,10 +230,14 @@ const HomePage: React.FC = () => {
       const tempAssociationId = `temp-${Date.now()}`;
       const associationTime = new Date().toLocaleString('zh-CN');
       
-      setSpecialElectrodes(prevElectrodes => 
-        prevElectrodes.map(electrode => {
+      // 计算发现的特殊电极数量
+      let specialElectrodeCount = 0;
+      
+      setSpecialElectrodes(prevElectrodes => {
+        const updatedElectrodes = prevElectrodes.map(electrode => {
           // 检查是否是当前CSV文件的电极且没有关联
           if (electrode.fileSource === currentCsvFileName && !electrode.datasetId) {
+            specialElectrodeCount++;
             return {
               ...electrode,
               datasetSource: `临时关联 (${associationTime})`,
@@ -245,10 +245,17 @@ const HomePage: React.FC = () => {
             };
           }
           return electrode;
-        })
-      );
+        });
+        
+        return updatedElectrodes;
+      });
 
-      message.success('数据关联成功！');
+      // 显示成功消息，包括特殊电极关联信息
+      if (specialElectrodeCount > 0) {
+        message.success(`数据关联成功！已关联 ${specialElectrodeCount} 个特殊电极。`);
+      } else {
+        message.success('数据关联成功！');
+      }
 
       // 自动清除选择
       clearSelection();
@@ -295,13 +302,16 @@ const HomePage: React.FC = () => {
     };
 
     // 更新特殊电极的数据集关联信息
-    setSpecialElectrodes(prevElectrodes => 
-      prevElectrodes.map(electrode => {
+    let updatedElectrodesCount = 0;
+    
+    setSpecialElectrodes(prevElectrodes => {
+      const updatedElectrodes = prevElectrodes.map(electrode => {
         // 判断条件：
         // 1. 来自当前CSV文件的电极
         // 2. 没有数据集关联 或 只有临时关联
         if (electrode.fileSource === lastCsvFileName && 
             (!electrode.datasetId || electrode.datasetId.startsWith('temp-'))) {
+          updatedElectrodesCount++;
           return {
             ...electrode,
             datasetSource: datasetName,
@@ -309,12 +319,19 @@ const HomePage: React.FC = () => {
           };
         }
         return electrode;
-      })
-    );
+      });
+      
+      return updatedElectrodes;
+    });
 
     setMergedDatasets([...mergedDatasets, newDataset]);
     setSelectedDatasetId(newDataset.id);
-    message.success(`数据集 "${datasetName}" 已保存，特殊电极已关联`);
+    
+    const successMessage = updatedElectrodesCount > 0 
+      ? `数据集 "${datasetName}" 已保存，已正式关联 ${updatedElectrodesCount} 个特殊电极`
+      : `数据集 "${datasetName}" 已保存`;
+      
+    message.success(successMessage);
     setSaveModalVisible(false);
   };
 
@@ -346,16 +363,109 @@ const HomePage: React.FC = () => {
         }
 
         // 清除已删除数据集关联的特殊电极信息
-        setSpecialElectrodes(prevElectrodes => 
-          prevElectrodes.map(electrode => {
+        setSpecialElectrodes(prevElectrodes => {
+          // 保存需要完全删除的电极索引
+          const electrodeIndicesToRemove: number[] = [];
+          
+          const updatedElectrodes = prevElectrodes.map((electrode, index) => {
+            let updatedElectrode = { ...electrode };
+            let hasChanges = false;
+            
+            // 1. 检查主关联
             if (electrode.datasetId === datasetId) {
-              // 移除关联信息，但保留电极
-              const { datasetId: _, datasetSource: __, ...rest } = electrode;
-              return rest as SpecialElectrode;
+              // 移除主关联信息
+              delete updatedElectrode.datasetId;
+              delete updatedElectrode.datasetSource;
+              hasChanges = true;
             }
+            
+            // 2. 检查额外关联
+            if (updatedElectrode.additionalDatasets && updatedElectrode.additionalDatasets.length > 0) {
+              const filteredAdditionalDatasets = updatedElectrode.additionalDatasets.filter(
+                dataset => dataset.datasetId !== datasetId
+              );
+              
+              if (filteredAdditionalDatasets.length !== updatedElectrode.additionalDatasets.length) {
+                updatedElectrode.additionalDatasets = filteredAdditionalDatasets;
+                hasChanges = true;
+              }
+            }
+            
+            // 3. 检查映射关系
+            if (updatedElectrode.mappings && updatedElectrode.mappings.length > 0) {
+              const filteredMappings = updatedElectrode.mappings.filter(
+                mapping => mapping.datasetId !== datasetId
+              );
+              
+              if (filteredMappings.length !== updatedElectrode.mappings.length) {
+                updatedElectrode.mappings = filteredMappings;
+                hasChanges = true;
+              }
+            }
+            
+            // 如果电极没有任何关联，清除可能的空数组
+            if (hasChanges) {
+              if (updatedElectrode.additionalDatasets && updatedElectrode.additionalDatasets.length === 0) {
+                delete updatedElectrode.additionalDatasets;
+              }
+              
+              if (updatedElectrode.mappings && updatedElectrode.mappings.length === 0) {
+                delete updatedElectrode.mappings;
+              }
+              
+              // 检查电极是否已失去所有关联
+              const hasNoRelations = !updatedElectrode.datasetId && 
+                (!updatedElectrode.additionalDatasets || updatedElectrode.additionalDatasets.length === 0);
+              
+              // 如果没有任何关联，标记为要删除
+              if (hasNoRelations) {
+                electrodeIndicesToRemove.push(index);
+              }
+              
+              return updatedElectrode;
+            }
+            
             return electrode;
-          })
-        );
+          });
+          
+          // 如果有需要删除的电极，从数组中移除它们
+          if (electrodeIndicesToRemove.length > 0) {
+            // 按索引从大到小排序，避免删除影响后续索引
+            electrodeIndicesToRemove.sort((a, b) => b - a);
+            
+            // 从数组中删除无关联的电极
+            const finalElectrodes = updatedElectrodes.filter((_, index) => 
+              !electrodeIndicesToRemove.includes(index)
+            );
+            
+            // 更新选中的B极和N极的索引集合
+            if (electrodeIndicesToRemove.length > 0) {
+              // 从选中状态中移除已删除的电极
+              setSelectedBElectrodeIndices(prev => {
+                const newSet = new Set(prev);
+                electrodeIndicesToRemove.forEach(idx => newSet.delete(idx));
+                return newSet;
+              });
+              
+              setSelectedNElectrodeIndices(prev => {
+                const newSet = new Set(prev);
+                electrodeIndicesToRemove.forEach(idx => newSet.delete(idx));
+                return newSet;
+              });
+              
+              setSelectedSpecialElectrodes(prev => {
+                const newSet = new Set(prev);
+                electrodeIndicesToRemove.forEach(idx => newSet.delete(idx));
+                return newSet;
+              });
+            }
+            
+            message.info(`已删除 ${electrodeIndicesToRemove.length} 个失去关联的特殊电极`);
+            return finalElectrodes;
+          }
+          
+          return updatedElectrodes;
+        });
 
         message.success('数据集已删除');
       },
@@ -398,6 +508,8 @@ const HomePage: React.FC = () => {
       selectedDatasetIds,
       mergedDatasets,
       mergedSetName,
+      specialElectrodes,
+      setSpecialElectrodes
     );
 
     if (newDataset) {
@@ -422,10 +534,10 @@ const HomePage: React.FC = () => {
       checked,
       selectedSpecialElectrodes,
       setSelectedSpecialElectrodes,
-      selectedBElectrodeIndex,
-      setSelectedBElectrodeIndex,
-      selectedNElectrodeIndex,
-      setSelectedNElectrodeIndex,
+      selectedBElectrodeIndices,
+      setSelectedBElectrodeIndices,
+      selectedNElectrodeIndices,
+      setSelectedNElectrodeIndices,
       specialElectrodes,
     );
   };
@@ -435,9 +547,7 @@ const HomePage: React.FC = () => {
     exportDatasetFiles(
       datasetId,
       mergedDatasets,
-      specialElectrodes,
-      selectedBElectrodeIndex,
-      selectedNElectrodeIndex,
+      specialElectrodes
     );
   };
 
@@ -447,10 +557,10 @@ const HomePage: React.FC = () => {
       indexesToDelete,
       specialElectrodes,
       setSpecialElectrodes,
-      selectedBElectrodeIndex,
-      setSelectedBElectrodeIndex,
-      selectedNElectrodeIndex,
-      setSelectedNElectrodeIndex,
+      selectedBElectrodeIndices,
+      setSelectedBElectrodeIndices,
+      selectedNElectrodeIndices,
+      setSelectedNElectrodeIndices,
       setSelectedSpecialElectrodes,
     );
   };
@@ -459,8 +569,8 @@ const HomePage: React.FC = () => {
   const generateSensorData = (
     data: ProcessedMapType,
     specialElectrodes: SpecialElectrode[],
-    selectedBElectrodeIndex: number | null,
-    selectedNElectrodeIndex: number | null,
+    selectedBElectrodeIndices: Set<number>,
+    selectedNElectrodeIndices: Set<number>,
   ): SensorDataEntry[] => {
     // 普通电极
     const normalElectrodes = Object.entries(data).map(([key, value]) => {
@@ -470,30 +580,32 @@ const HomePage: React.FC = () => {
 
     // 特殊电极
     const specialElectrodesData: SensorDataEntry[] = [];
-    if (
-      selectedBElectrodeIndex !== null &&
-      specialElectrodes[selectedBElectrodeIndex]
-    ) {
-      const bElectrode = specialElectrodes[selectedBElectrodeIndex];
-      specialElectrodesData.push([
-        'B',
-        bElectrode.position[0],
-        bElectrode.position[1],
-        bElectrode.position[2],
-      ]);
-    }
-    if (
-      selectedNElectrodeIndex !== null &&
-      specialElectrodes[selectedNElectrodeIndex]
-    ) {
-      const nElectrode = specialElectrodes[selectedNElectrodeIndex];
-      specialElectrodesData.push([
-        'N',
-        nElectrode.position[0],
-        nElectrode.position[1],
-        nElectrode.position[2],
-      ]);
-    }
+    
+    // 添加所有B极
+    selectedBElectrodeIndices.forEach(index => {
+      if (specialElectrodes[index]) {
+        const bElectrode = specialElectrodes[index];
+        specialElectrodesData.push([
+          'B',
+          bElectrode.position[0],
+          bElectrode.position[1],
+          bElectrode.position[2],
+        ]);
+      }
+    });
+    
+    // 添加所有N极
+    selectedNElectrodeIndices.forEach(index => {
+      if (specialElectrodes[index]) {
+        const nElectrode = specialElectrodes[index];
+        specialElectrodesData.push([
+          'N',
+          nElectrode.position[0],
+          nElectrode.position[1],
+          nElectrode.position[2],
+        ]);
+      }
+    });
 
     return [...normalElectrodes, ...specialElectrodesData];
   };
@@ -509,8 +621,8 @@ const HomePage: React.FC = () => {
     const data = generateSensorData(
       dataset.data,
       specialElectrodes,
-      selectedBElectrodeIndex,
-      selectedNElectrodeIndex,
+      selectedBElectrodeIndices,
+      selectedNElectrodeIndices,
     );
     if (data.length === 0) {
       message.warning('该数据集没有可显示的电极数据');
@@ -557,16 +669,16 @@ const HomePage: React.FC = () => {
         selectedDatFile={selectedDatFile}
         selectedCsvFile={selectedCsvFile}
         specialElectrodes={specialElectrodes}
-        selectedBElectrodeIndex={selectedBElectrodeIndex}
-        selectedNElectrodeIndex={selectedNElectrodeIndex}
+        selectedBElectrodeIndex={selectedBElectrodeIndices}
+        selectedNElectrodeIndex={selectedNElectrodeIndices}
       />
 
       {/* 使用独立的特殊电极列表组件 */}
       <SpecialElectrodesList
         specialElectrodes={specialElectrodes}
         selectedSpecialElectrodes={selectedSpecialElectrodes}
-        selectedBElectrodeIndex={selectedBElectrodeIndex}
-        selectedNElectrodeIndex={selectedNElectrodeIndex}
+        selectedBElectrodeIndices={selectedBElectrodeIndices}
+        selectedNElectrodeIndices={selectedNElectrodeIndices}
         onElectrodeSelect={handleSpecialElectrodeSelectWrapper}
         onElectrodesDelete={handleDeleteSpecialElectrodesWrapper}
       />

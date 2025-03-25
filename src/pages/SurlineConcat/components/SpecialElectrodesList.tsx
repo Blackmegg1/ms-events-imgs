@@ -1,13 +1,13 @@
 import React from 'react';
-import { Card, Table, Checkbox, Tag, Space, Button, Modal, Typography, message } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
+import { Card, Table, Checkbox, Tag, Space, Button, Modal, Typography, message, Tooltip } from 'antd';
+import { DeleteOutlined, LinkOutlined, NumberOutlined } from '@ant-design/icons';
 import { SpecialElectrode } from '../types';
 
 interface SpecialElectrodesListProps {
   specialElectrodes: SpecialElectrode[];
   selectedSpecialElectrodes: Set<number>;
-  selectedBElectrodeIndex: number | null;
-  selectedNElectrodeIndex: number | null;
+  selectedBElectrodeIndices: Set<number>;
+  selectedNElectrodeIndices: Set<number>;
   onElectrodeSelect: (index: number, checked: boolean) => void;
   onElectrodesDelete: (indexesToDelete: number[]) => void;
 }
@@ -16,8 +16,8 @@ interface SpecialElectrodesListProps {
 const SpecialElectrodesList: React.FC<SpecialElectrodesListProps> = ({
   specialElectrodes,
   selectedSpecialElectrodes,
-  selectedBElectrodeIndex,
-  selectedNElectrodeIndex,
+  selectedBElectrodeIndices,
+  selectedNElectrodeIndices,
   onElectrodeSelect,
   onElectrodesDelete,
 }) => {
@@ -31,7 +31,7 @@ const SpecialElectrodesList: React.FC<SpecialElectrodesListProps> = ({
       style={{ marginBottom: 16 }}
       extra={
         <Typography.Text type="secondary">
-          请选择一个B极和一个N极用于导出数据
+          可选择多对B极和N极用于导出数据
         </Typography.Text>
       }
     >
@@ -42,7 +42,11 @@ const SpecialElectrodesList: React.FC<SpecialElectrodesListProps> = ({
           x: electrode.position[0],
           y: electrode.position[1],
           z: electrode.position[2],
-          source: electrode.fileSource
+          source: electrode.fileSource,
+          datasetSource: electrode.datasetSource,
+          datasetId: electrode.datasetId,
+          additionalDatasets: electrode.additionalDatasets,
+          mappings: electrode.mappings
         }))}
         columns={[
           {
@@ -61,25 +65,111 @@ const SpecialElectrodesList: React.FC<SpecialElectrodesListProps> = ({
             title: '类型', 
             dataIndex: 'type', 
             key: 'type',
+            width: 80,
             render: (type: string, record: any) => (
               <>
                 {type}
-                {record.key === selectedBElectrodeIndex && type === 'B' && (
+                {selectedBElectrodeIndices.has(record.key) && type === 'B' && (
                   <Tag color="blue" style={{ marginLeft: 8 }}>已选择</Tag>
                 )}
-                {record.key === selectedNElectrodeIndex && type === 'N' && (
+                {selectedNElectrodeIndices.has(record.key) && type === 'N' && (
                   <Tag color="green" style={{ marginLeft: 8 }}>已选择</Tag>
                 )}
               </>
             )
           },
-          { title: 'X(m)', dataIndex: 'x', key: 'x' },
-          { title: 'Y(m)', dataIndex: 'y', key: 'y' },
-          { title: 'Z(m)', dataIndex: 'z', key: 'z' },
-          { title: '来源', dataIndex: 'source', key: 'source' },
+          { title: 'X(m)', dataIndex: 'x', key: 'x', width: 100 },
+          { title: 'Y(m)', dataIndex: 'y', key: 'y', width: 100 },
+          { title: 'Z(m)', dataIndex: 'z', key: 'z', width: 100 },
+          { title: '来源文件', dataIndex: 'source', key: 'source', width: 180,
+            ellipsis: {
+              showTitle: false,
+            },
+            render: (source: string) => (
+              <Tooltip title={source}>
+                {source}
+              </Tooltip>
+            )
+          },
+          { 
+            title: '关联数据集', 
+            dataIndex: 'datasetSource', 
+            key: 'datasetSource',
+            width: 200,
+            render: (datasetSource: string, record: any) => {
+              // 主数据集关联
+              const primaryLink = (
+                datasetSource ? (
+                  <Tooltip title={`主要关联: ${datasetSource}`}>
+                    <Tag color="cyan" icon={<LinkOutlined />}>
+                      {datasetSource.startsWith('临时关联') ? 
+                        '临时关联' : 
+                        datasetSource}
+                    </Tag>
+                  </Tooltip>
+                ) : (
+                  <Typography.Text type="secondary">未关联</Typography.Text>
+                )
+              );
+              
+              // 额外数据集关联
+              const additionalLinks = record.additionalDatasets && record.additionalDatasets.length > 0 ? (
+                record.additionalDatasets.map((dataset: any, idx: number) => (
+                  <Tooltip key={idx} title={`合并集关联: ${dataset.datasetSource}`}>
+                    <Tag color="purple" icon={<LinkOutlined />} style={{ marginLeft: 4 }}>
+                      {dataset.datasetSource}
+                    </Tag>
+                  </Tooltip>
+                ))
+              ) : null;
+              
+              return (
+                <Space size={0} wrap>
+                  {primaryLink}
+                  {additionalLinks}
+                </Space>
+              );
+            }
+          },
+          {
+            title: '映射行号',
+            key: 'mappings',
+            width: 250,
+            render: (_: any, record: any) => {
+              if (!record.mappings || record.mappings.length === 0) {
+                return <Typography.Text type="secondary">无映射</Typography.Text>;
+              }
+              
+              return (
+                <Space size={[0, 4]} wrap>
+                  {record.mappings.map((mapping: any, idx: number) => {
+                    // 显示映射信息，优先显示行号范围
+                    const rangeText = mapping.indexRange 
+                      ? `${mapping.indexRange[0]}-${mapping.indexRange[1]}` 
+                      : mapping.mappedIndex.toString();
+                    
+                    const tooltipTitle = mapping.indexRange
+                      ? `在数据集 "${mapping.datasetName}" 中映射到索引 ${mapping.mappedIndex}，行号范围 ${mapping.indexRange[0]}-${mapping.indexRange[1]}`
+                      : `在数据集 "${mapping.datasetName}" 中映射到索引 ${mapping.mappedIndex}`;
+                    
+                    return (
+                      <Tooltip key={idx} title={tooltipTitle}>
+                        <Tag color="orange" icon={<NumberOutlined />} style={{ marginRight: 4 }}>
+                          {mapping.datasetName.length > 8 
+                            ? `${mapping.datasetName.substring(0, 8)}..` 
+                            : mapping.datasetName}: {rangeText}
+                        </Tag>
+                      </Tooltip>
+                    );
+                  })}
+                </Space>
+              );
+            }
+          }
         ]}
         pagination={false}
         size="small"
+        scroll={{ x: 'max-content' }}
       />
       <Space style={{ marginTop: 16 }}>
         <Button 
@@ -95,7 +185,7 @@ const SpecialElectrodesList: React.FC<SpecialElectrodesListProps> = ({
               title: '确认删除',
               content: `确定要删除选中的 ${selectedSpecialElectrodes.size} 个特殊电极吗？`,
               okText: '删除',
-              okType: 'danger',
+              okType: '危险',
               cancelText: '取消',
               onOk: () => {
                 const indexesToDelete = Array.from(selectedSpecialElectrodes);

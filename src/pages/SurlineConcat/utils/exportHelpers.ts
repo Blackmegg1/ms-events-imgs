@@ -8,21 +8,8 @@ import { MergedDataset, ProcessedMapType, SpecialElectrode } from '../types';
 export const exportDatasetFiles = (
   datasetId: string,
   mergedDatasets: MergedDataset[],
-  specialElectrodes: SpecialElectrode[],
-  selectedBElectrodeIndex: number | null,
-  selectedNElectrodeIndex: number | null
+  specialElectrodes: SpecialElectrode[]
 ) => {
-  // 检查是否选择了所需的特殊电极
-  if (selectedBElectrodeIndex === null) {
-    message.warning('请先选择一个B极电极');
-    return;
-  }
-
-  if (selectedNElectrodeIndex === null) {
-    message.warning('请先选择一个N极电极');
-    return;
-  }
-  
   const dataset = mergedDatasets.find(ds => ds.id === datasetId);
   if (!dataset) {
     message.error('找不到数据集');
@@ -35,9 +22,37 @@ export const exportDatasetFiles = (
       .map(n => parseInt(n, 10))
       .sort((a, b) => a - b);
     
-    // 获取选中的特殊电极
-    const bElectrode = specialElectrodes[selectedBElectrodeIndex];
-    const nElectrode = specialElectrodes[selectedNElectrodeIndex];
+    // 查找与当前数据集关联的所有特殊电极
+    const relatedElectrodes = specialElectrodes.filter(electrode => {
+      // 检查主关联
+      if (electrode.datasetId === datasetId) {
+        return true;
+      }
+      
+      // 检查额外关联
+      if (electrode.additionalDatasets && electrode.additionalDatasets.length > 0) {
+        return electrode.additionalDatasets.some(ds => ds.datasetId === datasetId);
+      }
+      
+      // 检查映射关联
+      if (electrode.mappings && electrode.mappings.length > 0) {
+        return electrode.mappings.some(m => m.datasetId === datasetId);
+      }
+      
+      return false;
+    });
+    
+    // 分离B极和N极
+    const bElectrodes = relatedElectrodes.filter(e => e.type === 'B');
+    const nElectrodes = relatedElectrodes.filter(e => e.type === 'N');
+    
+    if (bElectrodes.length === 0) {
+      message.warning('未找到与此数据集关联的B极电极');
+    }
+    
+    if (nElectrodes.length === 0) {
+      message.warning('未找到与此数据集关联的N极电极');
+    }
     
     // 1. 导出DAT文件 - 电流和电压数据
     let datContent = '电流\t  ,';
@@ -83,17 +98,46 @@ export const exportDatasetFiles = (
     });
     
     // 2. 导出CSV文件 - 坐标数据
-    let csvContent = '序号,X(m),Y(m),Z(m)\r\n';
+    // 修改CSV表头，添加起始行号和结束行号列
+    let csvContent = '序号,X(m),Y(m),Z(m),起始行号,结束行号\r\n';
     
     // 添加电极坐标
     electrodeNumbers.forEach(n => {
       const pos = dataToExport[n].pos;
-      csvContent += `${n},${pos[0]},${pos[1]},${pos[2]}\r\n`;
+      csvContent += `${n},${pos[0]},${pos[1]},${pos[2]},,\r\n`;
     });
     
-    // 添加B极和N极坐标
-    csvContent += `B,${bElectrode.position[0]},${bElectrode.position[1]},${bElectrode.position[2]}\r\n`;
-    csvContent += `N,${nElectrode.position[0]},${nElectrode.position[1]},${nElectrode.position[2]}\r\n`;
+    // 添加所有关联的B极电极
+    bElectrodes.forEach(bElectrode => {
+      // 获取映射行号范围
+      let bStartRow = '';
+      let bEndRow = '';
+      if (bElectrode.mappings && bElectrode.mappings.length > 0) {
+        const bMapping = bElectrode.mappings.find(m => m.datasetId === datasetId);
+        if (bMapping && bMapping.indexRange) {
+          bStartRow = bMapping.indexRange[0].toString();
+          bEndRow = bMapping.indexRange[1].toString();
+        }
+      }
+      
+      csvContent += `B,${bElectrode.position[0]},${bElectrode.position[1]},${bElectrode.position[2]},${bStartRow},${bEndRow}\r\n`;
+    });
+    
+    // 添加所有关联的N极电极
+    nElectrodes.forEach(nElectrode => {
+      // 获取映射行号范围
+      let nStartRow = '';
+      let nEndRow = '';
+      if (nElectrode.mappings && nElectrode.mappings.length > 0) {
+        const nMapping = nElectrode.mappings.find(m => m.datasetId === datasetId);
+        if (nMapping && nMapping.indexRange) {
+          nStartRow = nMapping.indexRange[0].toString();
+          nEndRow = nMapping.indexRange[1].toString();
+        }
+      }
+      
+      csvContent += `N,${nElectrode.position[0]},${nElectrode.position[1]},${nElectrode.position[2]},${nStartRow},${nEndRow}\r\n`;
+    });
     
     // 准备文件名（去除不合法字符）
     const safeFileName = dataset.name.replace(/[^\w\u4e00-\u9fa5]/g, '_');
@@ -130,7 +174,7 @@ export const exportDatasetFiles = (
       URL.revokeObjectURL(csvUrl);
     }, 100);
     
-    message.success(`已导出 ${safeFileName}.dat 和 ${safeFileName}_坐标.csv`);
+    message.success(`已导出 ${safeFileName}.dat 和 ${safeFileName}_坐标.csv（包含${bElectrodes.length}个B极和${nElectrodes.length}个N极）`);
   } catch (error: any) {
     message.error(`导出失败: ${error.message}`);
   }
