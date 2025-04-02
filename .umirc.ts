@@ -81,7 +81,13 @@ export default defineConfig({
       path: '/surlineConcat',
       component: './SurlineConcat',
     },
+    {
+      name: '随掘三维偏移图',
+      path: '/tunnelModel',
+      component: './TunnelModel',
+    },
   ],
+  
   npmClient: 'pnpm',
   proxy: {
     '/api': {
