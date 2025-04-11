@@ -5,10 +5,11 @@
 // export async function getInitialState(): Promise<{ name: string }> {
 //   return { name: '微震电法数据处理系统' };
 // }
+import logo from '@/favicon.ico';
 
 export const layout = () => {
   return {
-    logo: 'https://img.alicdn.com/tfs/TB1YHEpwUT1gK0jSZFhXXaAtVXa-28-27.svg',
+    logo: logo,
     menu: {
       locale: false,
     },

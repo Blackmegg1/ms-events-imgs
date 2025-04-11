@@ -2,7 +2,7 @@ import { batchDeleteProjectEvents } from '@/services/event/EventController';
 import services from '@/services/project';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { Link } from '@umijs/max';
-import { Button, Popconfirm, Space, message } from 'antd';
+import { Button, Popconfirm, Space, message, Tag } from 'antd';
 import dayjs from 'dayjs';
 import { useRef, useState } from 'react';
 import CreateForm from './component/CreateForm';
@@ -28,6 +28,12 @@ const HomePage: React.FC = () => {
           },
         ],
       },
+      render: (_: any, record: any) => (
+        <span>
+          {record.projectName}
+          {record.is_finished === 1 && <Tag color='green' style={{ marginLeft: 8 }}>已完成</Tag>}
+        </span>
+      ),
     },
     {
       title: '更新时间',
@@ -70,13 +76,13 @@ const HomePage: React.FC = () => {
             >
               底图管理
             </Link>
-            <Link
+            {/* <Link
               to={{
                 pathname: `/event?project_id=${record.id}`,
               }}
             >
               事件管理
-            </Link>
+            </Link> */}
             <Popconfirm
               title="确认清除该项目下所有事件？"
               description="此操作不可逆"
@@ -134,6 +140,7 @@ const HomePage: React.FC = () => {
         <CreateForm
           onCancel={() => {
             handleCreateVisible(false);
+            // @ts-ignore
             tableRef.current.reload();
           }}
           modalVisible={createModalVisible}
@@ -142,6 +149,7 @@ const HomePage: React.FC = () => {
           currentRecord={currentRecord}
           onCancel={() => {
             handleEditVisible(false);
+            // @ts-ignore
             tableRef.current.reload();
           }}
           modalVisible={editModalVisible}

@@ -1,5 +1,6 @@
 import services from '@/services/project';
-import { Button, DatePicker, Form, Input, Modal, Select, message } from 'antd';
+import { Button, DatePicker, Form, Input, Modal, Select, message, Switch, Tooltip } from 'antd';
+import { QuestionCircleOutlined } from '@ant-design/icons'; // Import for question mark icon
 import dayjs from 'dayjs';
 import React, { PropsWithChildren, useEffect, useState } from 'react';
 
@@ -10,6 +11,7 @@ interface EditFormProps {
     projectName: string;
     initTime: string;
     by_mag: number;
+    is_finished: number; // Add is_finished to the interface
   };
   onCancel: () => void;
 }
@@ -33,7 +35,12 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
         form
           .validateFields()
           .then((validFields) => {
-            return editProject(currentRecord.id, validFields);
+            // Convert is_finished boolean to number (0 or 1) for backend
+            const payload = {
+              ...validFields,
+              is_finished: validFields.is_finished ? 1 : 0,
+            };
+            return editProject(currentRecord.id, payload);
           })
           .then(() => {
             setLoading(false);
@@ -57,8 +64,9 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
       const today = dayjs();
       form.setFieldValue('initTime', today);
       form.setFieldValue('by_mag', currentRecord?.by_mag);
+      form.setFieldValue('is_finished', currentRecord?.is_finished === 1);
     }
-  }, [currentRecord]);
+  }, [currentRecord, form]);
 
   return (
     <Modal
@@ -91,6 +99,20 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
         </Form.Item>
         <Form.Item name="initTime" label="更新时间">
           <DatePicker format="YYYY-MM-DD HH:mm:ss" disabled />
+        </Form.Item>
+        <Form.Item
+          label={
+            <span>
+              项目状态
+              <Tooltip title="已完成的项目将在下拉框中隐藏">
+                <QuestionCircleOutlined style={{ marginLeft: 4 }} />
+              </Tooltip>
+            </span>
+          }
+          name="is_finished"
+          valuePropName="checked"
+        >
+          <Switch checkedChildren="已完成" unCheckedChildren="未完成" />
         </Form.Item>
       </Form>
     </Modal>
