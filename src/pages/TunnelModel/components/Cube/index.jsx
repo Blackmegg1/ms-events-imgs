@@ -114,7 +114,8 @@ const Cube = () => {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    addAxisNumber(axisStart, axisLength, 10);
+    const textMeshes = [];
+    textMeshes.push(...addAxisNumber(axisStart, axisLength, 10));
 
     const animate = () => {
       if (resizeRendererToDisplaySize(renderer)) {
@@ -122,6 +123,7 @@ const Cube = () => {
         camera.aspect = canvas.clientWidth / canvas.clientHeight;
         camera.updateProjectionMatrix();
       }
+      textMeshes.forEach((mesh) => mesh.lookAt(camera.position));
       requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
@@ -134,13 +136,13 @@ const Cube = () => {
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    
+
       // 更新射线投射器
       raycaster.setFromCamera(mouse, camera);
-    
+
       // 获取场景中所有对象的交点
       const intersects = raycaster.intersectObjects(scene.children, true);
-    
+
       if (intersects.length > 0) {
         // 将 OrbitControls 的目标设置为第一个交点
         const intersectionPoint = intersects[0].point;
@@ -243,7 +245,7 @@ const Cube = () => {
       }
     }
 
-    function addText(text, position, color) {
+    function addText(text, position, color, camera) {
       const font = new FontLoader().parse(regularFont);
       const textGeometry = new TextGeometry(text, {
         font: font,
@@ -254,17 +256,56 @@ const Cube = () => {
       const textMesh = new THREE.Mesh(textGeometry, textMaterial);
       textMesh.position.copy(position);
       textMesh.rotation.x = -Math.PI / 2;
+      textMesh.lookAt(camera.position);
       scene.add(textMesh);
+      return textMesh;
     }
 
-    function addAxisNumber(xstart = 0, xlong, divide) {
-      const step = xlong / divide;
+    function addAxisNumber(start = 0, length, divide, axis = 'x', unit = '(m)') {
+      const meshes = [];
+      const step = length / divide;
+    
+      // 根据轴调整文字位置和朝向
       for (let i = 0; i <= divide; i++) {
-        const xPos = i * step;
-        const text = (xstart + i * step).toString();
-        addText(text, new THREE.Vector3(xPos - 2, 0, 25), 0x000000);
+        const pos = i * step;
+        const value = (start + pos).toString();
+        let position;
+    
+        // 根据轴设置文字位置
+        switch (axis.toLowerCase()) {
+          case 'x':
+            position = new THREE.Vector3(pos, 0, 25); // X 轴，Z 偏移以显示在轴上方
+            break;
+          case 'y':
+            position = new THREE.Vector3(0, pos, 25); // Y 轴，Z 偏移
+            break;
+          case 'z':
+            position = new THREE.Vector3(0, 25, pos); // Z 轴，Y 偏移
+            break;
+          default:
+            throw new Error("Axis must be 'x', 'y', or 'z'");
+        }
+    
+        // 添加刻度文字
+        meshes.push(addText(value, position, 0x000000, camera));
       }
-      addText('(m)', new THREE.Vector3(xlong + 8, 0, 25), 0x000000);
+    
+      // 添加单位标签
+      let unitPosition;
+      switch (axis.toLowerCase()) {
+        case 'x':
+          unitPosition = new THREE.Vector3(length + 8, 0, 25); // 单位放在 X 轴末端
+          break;
+        case 'y':
+          unitPosition = new THREE.Vector3(0, length + 8, 25); // 单位放在 Y 轴末端
+          break;
+        case 'z':
+          unitPosition = new THREE.Vector3(0, 25, length + 8); // 单位放在 Z 轴末端
+          break;
+      }
+      meshes.push(addText(unit, unitPosition, 0x000000, camera));
+    
+      return meshes;
     }
 
     function resizeRendererToDisplaySize(renderer) {
