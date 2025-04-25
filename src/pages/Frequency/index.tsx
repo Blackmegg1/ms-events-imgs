@@ -1,6 +1,6 @@
 import { getEventList } from '@/services/event/EventController';
 import { getImgList } from '@/services/imgmag/ImgmagController';
-import { getProjectDist } from '@/services/project/ProjectController';
+import { getActiveProject } from '@/services/project/ProjectController';
 import { PageContainer } from '@ant-design/pro-components';
 import {
   Button,
@@ -20,16 +20,24 @@ const { RangePicker } = DatePicker;
 
 const Frequency = () => {
   const [projectArr, setProjectArr] = useState([]);
-  const [projectDist, setProjectDist] = useState([]);
+  const [activeProjectDist, setActiveProjectDist] = useState({});
+
   const [form] = Form.useForm();
   const [eventList, setEventList] = useState([]);
   const [imgList, setImgList] = useState([]);
   const [divide, setDivide] = useState(10);
 
   useEffect(() => {
-    async function fetchDist() {
-      const response = await getProjectDist();
-      setProjectDist(response);
+    async function fetchActiveProjectDist() {
+      const response = await getActiveProject();
+      const distObj: any = {};
+      response.forEach((project: { projectName: string; id: number }) => {
+        distObj[project.id] = {
+          text: project.projectName,
+          status: project.projectName,
+        };
+      });
+      setActiveProjectDist(distObj);
       const distArr: any = [];
       response.forEach((project: { projectName: string; id: number }) => {
         distArr.push({ value: project.id, label: project.projectName });
@@ -37,7 +45,7 @@ const Frequency = () => {
       setProjectArr(distArr);
       return;
     }
-    fetchDist();
+    fetchActiveProjectDist();
   }, []);
 
   const getEvent = async (params: { timeRage: any[]; project_id: any }) => {

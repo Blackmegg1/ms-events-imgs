@@ -13,7 +13,7 @@ import CreateForm from './components/CreateForm';
 
 const { getEventList, addEvent, batchDeleteEvents } =
   eventServices.EventController;
-const { getProjectDist } = projectServices.ProjectController;
+const { getProjectDist, getActiveProject } = projectServices.ProjectController;
 
 const Event: React.FC = () => {
   const [form] = Form.useForm();
@@ -21,6 +21,8 @@ const Event: React.FC = () => {
   const [batchModalVisible, handleBatchVisible] = useState(false);
   const [selectedRowsState, setSelectedRows] = useState([]);
   const [projectDist, setProjectDist] = useState({});
+  const [activeProjectDist, setActiveProjectDist] = useState({});
+
   const tableRef = useRef();
   const formRef = useRef();
 
@@ -47,6 +49,19 @@ const Event: React.FC = () => {
       setProjectDist(distObj);
       return;
     }
+    async function fetchActiveProjectDist() {
+      const response = await getActiveProject();
+      const distObj: any = {};
+      response.forEach((project: { projectName: string; id: number }) => {
+        distObj[project.id] = {
+          text: project.projectName,
+          status: project.projectName,
+        };
+      });
+      setActiveProjectDist(distObj);
+      return;
+    }
+    fetchActiveProjectDist();
     fetchDist();
   }, []);
 
@@ -295,7 +310,7 @@ const Event: React.FC = () => {
           handleBatchVisible(false);
           tableRef.current.reload();
         }}
-        projectDist={projectDist}
+        projectDist={activeProjectDist}
       />
       {selectedRowsState?.length > 0 && (
         <FooterToolbar

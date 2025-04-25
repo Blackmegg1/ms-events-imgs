@@ -1,5 +1,5 @@
 import { getEventList } from '@/services/event/EventController';
-import { getProjectDist } from '@/services/project/ProjectController';
+import { getActiveProject, getProjectDist } from '@/services/project/ProjectController';
 import { computerEvent } from '@/utils/pointSurfaceRegion';
 import { PageContainer } from '@ant-design/pro-components';
 import {
@@ -24,12 +24,12 @@ const { RangePicker } = DatePicker;
 const TimingImg = () => {
   const [form] = Form.useForm();
   const [projectArr, setProjectArr] = useState([]);
-  const [projectDist, setProjectDist] = useState([]);
+  const [activeProjectDist, setActiveProjectDist] = useState({});
   const [eventList, setEventList] = useState([]);
 
   useEffect(() => {
-    async function fetchDist() {
-      const response = await getProjectDist();
+    async function fetchActiveProjectDist() {
+      const response = await getActiveProject();
       const distObj: any = {};
       response.forEach(
         (project: { projectName: string; id: number; by_mag: number }) => {
@@ -40,7 +40,7 @@ const TimingImg = () => {
           };
         },
       );
-      setProjectDist(distObj);
+      setActiveProjectDist(distObj);
       const distArr: any = [];
       response.forEach((project: { projectName: string; id: number }) => {
         distArr.push({ value: project.id, label: project.projectName });
@@ -48,7 +48,7 @@ const TimingImg = () => {
       setProjectArr(distArr);
       return;
     }
-    fetchDist();
+    fetchActiveProjectDist();
   }, []);
 
   const getEvent = async (params: {

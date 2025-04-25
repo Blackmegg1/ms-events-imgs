@@ -30,8 +30,16 @@ export function editProject(
   });
 }
 
+// 获取所有项目字典
 export function getProjectDist() {
   return request('/api/project/all', {
+    method: 'get',
+  });
+}
+
+// 获取所有未完成的项目字典
+export function getActiveProject() {
+  return request('/api/project/all-active', {
     method: 'get',
   });
 }

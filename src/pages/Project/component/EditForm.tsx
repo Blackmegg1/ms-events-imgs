@@ -104,7 +104,7 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
           label={
             <span>
               项目状态
-              <Tooltip title="已完成的项目将在下拉框中隐藏">
+              <Tooltip title="已完成的项目将在部分选项中被隐藏">
                 <QuestionCircleOutlined style={{ marginLeft: 4 }} />
               </Tooltip>
             </span>

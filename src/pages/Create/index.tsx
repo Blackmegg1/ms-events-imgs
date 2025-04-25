@@ -1,6 +1,9 @@
 import { addEvent, getEventList } from '@/services/event/EventController';
 import { getImgList } from '@/services/imgmag/ImgmagController';
-import { getProjectDist } from '@/services/project/ProjectController';
+import {
+  getActiveProject,
+  getProjectDist,
+} from '@/services/project/ProjectController';
 import { computerEvent } from '@/utils/pointSurfaceRegion';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import {
@@ -27,6 +30,7 @@ const Create = () => {
   const [eventList, setEventList] = useState([]);
   const [imgList, setImgList] = useState([]);
   const [projectDist, setProjectDist] = useState([]);
+  const [activeProjectDist, setActiveProjectDist] = useState({});
   const [byMag, setByMag] = useState(1);
   const [form] = Form.useForm();
   const [createEventForm] = useForm();
@@ -46,6 +50,26 @@ const Create = () => {
         },
       );
       setProjectDist(distObj);
+      // const distArr: any = [];
+      // response.forEach((project: { projectName: string; id: number }) => {
+      //   distArr.push({ value: project.id, label: project.projectName });
+      // });
+      // setProjectArr(distArr);
+      // return;
+    }
+    async function fetchActiveProjectDist() {
+      const response = await getActiveProject();
+      const distObj: any = {};
+      response.forEach(
+        (project: { projectName: string; id: number; by_mag: number }) => {
+          distObj[project.id] = {
+            text: project.projectName,
+            status: project.projectName,
+            byMag: project['by_mag'],
+          };
+        },
+      );
+      setActiveProjectDist(distObj);
       const distArr: any = [];
       response.forEach((project: { projectName: string; id: number }) => {
         distArr.push({ value: project.id, label: project.projectName });
@@ -53,6 +77,7 @@ const Create = () => {
       setProjectArr(distArr);
       return;
     }
+    fetchActiveProjectDist();
     fetchDist();
   }, []);
 
