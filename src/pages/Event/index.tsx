@@ -1,5 +1,6 @@
 import eventServices from '@/services/event';
 import projectServices from '@/services/project';
+import { createAffineTransform2D } from '@/utils';
 import {
   FooterToolbar,
   PageContainer,
@@ -169,20 +170,48 @@ const Event: React.FC = () => {
     });
 
     // 定义标题行
-    const csvHeader = '发震时刻,x,y,z,能量(KJ),震级(M)';
+    let csvHeader = '发震时刻,x,y,z,能量(KJ),震级(M)';
 
     // 将对象数组转换为CSV行
     const csvRows = list.map(
       (obj: {
-        loc_x: any;
-        loc_y: any;
-        loc_z: any;
-        energy: any;
-        magnitude: any;
-        time: any;
+        loc_x: number;
+        loc_y: number;
+        loc_z: number;
+        energy: number;
+        magnitude: number;
+        time: string;
       }) => {
-        const { loc_x, loc_y, loc_z, energy, magnitude, time } = obj;
-        const formattedTime = dayjs(time).format('YYMMDD');
+        let { loc_x, loc_y, loc_z, energy, magnitude, time } = obj;
+        let formattedTime = dayjs(time).format('YYMMDD');
+
+        // 如果是 project_id === 40，执行坐标转换
+        if (formParams.project_id === '40') {
+
+          csvHeader = '发震时刻,x,y,z,能量(J),震级(M)';
+          formattedTime = dayjs(time).format('YYYY/MM/DD HH:mm');
+          energy = energy * 1000;
+
+          const systemRef = { x: 492.79, y: 232 };
+          const geoRef = { x: 85356.99, y: 32827.14 };
+          const systemOrigin = { x: 0, y: 0 };
+          const geoOrigin = { x: 85880.06, y: 32979.52 };
+
+          // 创建转换函数
+          const convertToGeodetic2000 = createAffineTransform2D(
+            systemRef,
+            geoRef,
+            systemOrigin,
+            geoOrigin,
+          );
+
+          // 使用：转换任意点
+          const result = convertToGeodetic2000(loc_x, loc_y, loc_z);
+          loc_x = result.x;
+          loc_y = result.y;
+          loc_z = result.z;
+        }
+
         return `${formattedTime},${loc_x},${loc_y},${loc_z},${energy},${magnitude}`;
       },
     );
