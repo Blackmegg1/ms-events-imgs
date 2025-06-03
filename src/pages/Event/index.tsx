@@ -187,7 +187,6 @@ const Event: React.FC = () => {
 
         // 如果是 project_id === 40，执行坐标转换
         if (formParams.project_id === '40') {
-
           csvHeader = '发震时刻,x,y,z,能量(J),震级(M)';
           formattedTime = dayjs(time).format('YYYY/MM/DD HH:mm');
           energy = energy * 1000;
@@ -207,9 +206,9 @@ const Event: React.FC = () => {
 
           // 使用：转换任意点
           const result = convertToGeodetic2000(loc_x, loc_y, loc_z);
-          loc_x = result.x;
-          loc_y = result.y;
-          loc_z = result.z;
+          loc_x = Number(result.x.toFixed(2));
+          loc_y = Number(result.y.toFixed(2));
+          loc_z = Number(result.z.toFixed(2));
         }
 
         return `${formattedTime},${loc_x},${loc_y},${loc_z},${energy},${magnitude}`;
