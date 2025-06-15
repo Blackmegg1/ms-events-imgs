@@ -15,6 +15,7 @@ interface Iprops {
   left_margin: number;
   eventList: any[];
   byMag: number;
+  lineCoordinate: [number[], number[]] | null;
 }
 
 const Planar: React.FC<Iprops> = (props: Iprops) => {
@@ -31,6 +32,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     top_margin,
     left_margin,
     eventList,
+    lineCoordinate,
     byMag,
   } = props;
 
@@ -110,6 +112,39 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     }
   }
 
+  function drawLineSegment(cvs: any, ctx: any, coords: number[][]) {
+    if (coords.length !== 2) return;
+
+    const [[x1, y1], [x2, y2]] = coords;
+
+    const wRatio = (cvs.width - left_margin) / state.width;
+    const hRatio = (cvs.height - top_margin) / state.height;
+
+    const cx1 = wRatio * (x1 - state.minx) + left_margin;
+    const cy1 = cvs.height - hRatio * (y1 - state.miny) + top_margin;
+
+    const cx2 = wRatio * (x2 - state.minx) + left_margin;
+    const cy2 = cvs.height - hRatio * (y2 - state.miny) + top_margin;
+
+    ctx.beginPath();
+    ctx.strokeStyle = '#ff00ea';
+    ctx.lineWidth = 4;
+    ctx.moveTo(cx1, cy1);
+    ctx.lineTo(cx2, cy2);
+    ctx.stroke();
+
+    // ✅ 获取当前日期
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+
+    // ✅ 在第二个端点右下角绘制文字
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillStyle = '#ff00ea';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(dateStr, cx2, cy2 + 8); // 右下角偏移一点，避免遮挡线端
+  }
+
   useEffect(() => {
     switch (norm_axis) {
       case 'x':
@@ -146,7 +181,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
         });
         break;
     }
-  }, [norm_axis, max_x, min_x, max_y, min_y, max_z, min_z]);
+  }, [norm_axis, max_x, min_x, max_y, min_y, max_z, min_z, lineCoordinate]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -176,6 +211,10 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
           img.height * hRatio,
         );
         drawMsEvents(canvas, ctx, listeners);
+        // 绘制采线
+        if (props.norm_axis === 'z' && lineCoordinate?.length === 2) {
+          drawLineSegment(canvas, ctx, lineCoordinate);
+        }
       };
       img.src = `data:image/png;base64,${img_base64}`;
     }

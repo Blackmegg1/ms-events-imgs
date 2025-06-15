@@ -9,9 +9,12 @@ import { PageContainer, ProTable } from '@ant-design/pro-components';
 import {
   Button,
   Card,
+  Col,
   DatePicker,
   Form,
+  Input,
   InputNumber,
+  Row,
   Select,
   Space,
   message,
@@ -34,6 +37,7 @@ const Create = () => {
   const [byMag, setByMag] = useState(1);
   const [form] = Form.useForm();
   const [createEventForm] = useForm();
+  const [lineCoordinate, setLineCoordinate] = useState<[number[]] | null>([[]]);
   const [createModalVisible, handleCreateVisible] = useState(false);
 
   useEffect(() => {
@@ -270,57 +274,105 @@ const Create = () => {
       }}
     >
       <Card>
-        <Form layout="inline" form={form}>
-          <Space>
-            <Form.Item label="成图项目" name="project_id">
-              <Select
-                options={projectArr}
-                style={{ width: 220 }}
-                placeholder="请选择"
-              />
-            </Form.Item>
-            <Form.Item label="事件时间段" name="timeRage">
-              <RangePicker />
-            </Form.Item>
-            <Form.Item label="层位切片" name="z_range">
-              <NumberRangeInput />
-            </Form.Item>
-            <Form.Item>
-              <Space>
-                <Button
-                  onClick={() => {
-                    form.resetFields();
-                    setImgList([]);
-                    setEventList([]);
-                  }}
-                >
-                  重置
-                </Button>
-                <Button
-                  type="primary"
-                  onClick={() => {
-                    const params = form.getFieldsValue();
-                    console.log(params, 'params');
-                    getEvent(params);
-                    getImg(params);
-                    setByMag(getByMag(params));
-                  }}
-                >
-                  成图
-                </Button>
-                <Button
-                  type="primary"
-                  onClick={() => {
-                    const params = form.getFieldsValue();
-                    console.log(params, 'params');
-                    handleCreateVisible(true);
-                  }}
-                >
-                  新建事件
-                </Button>
-              </Space>
-            </Form.Item>
-          </Space>
+        <Form form={form} layout="vertical">
+          <Row gutter={16}>
+            <Col span={6}>
+              <Form.Item label="成图项目" name="project_id">
+                <Select options={projectArr} placeholder="请选择" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="事件时间段" name="timeRage">
+                <RangePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item label="层位切片" name="z_range">
+                <NumberRangeInput />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                label="采线坐标组"
+                name="line_coords"
+                rules={[
+                  {
+                    pattern:
+                      /^\s*\[\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*\]\s*,\s*\[\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*\]\s*$/,
+                    message: '格式应为 [x1,y1],[x2,y2]',
+                  },
+                ]}
+              >
+                <Input placeholder="如：[100,200],[300,400]" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item>
+                <Space>
+                  <Button
+                    onClick={() => {
+                      form.resetFields();
+                      setImgList([]);
+                      setEventList([]);
+                      setLineCoordinate(null);
+                    }}
+                  >
+                    重置
+                  </Button>
+                  <Button
+                    type="primary"
+                    onClick={() => {
+                      const params = form.getFieldsValue();
+                      console.log(params, 'params');
+                      getEvent(params);
+                      getImg(params);
+                      setByMag(getByMag(params));
+                      // 解析 coordinate 字符串
+                      const coordStr = params.line_coords;
+                      if (coordStr) {
+                        try {
+                          // 替换成标准 JSON 格式并解析
+                          const formatted = `[${coordStr}]`.replace(
+                            /(\d+)\s*,\s*(\d+)/g,
+                            (_, a, b) => `${a.trim()},${b.trim()}`,
+                          );
+                          const parsed = JSON.parse(formatted);
+                          if (
+                            Array.isArray(parsed) &&
+                            parsed.length === 2 &&
+                            parsed.every(
+                              (pair) =>
+                                Array.isArray(pair) &&
+                                pair.length === 2 &&
+                                pair.every((n) => !isNaN(n)),
+                            )
+                          ) {
+                            setLineCoordinate(parsed);
+                          } else {
+                            message.error('采线坐标格式错误');
+                          }
+                        } catch (e) {
+                          message.error('采线坐标解析失败');
+                        }
+                      }
+                    }}
+                  >
+                    成图
+                  </Button>
+                  <Button
+                    type="primary"
+                    onClick={() => {
+                      const params = form.getFieldsValue();
+                      console.log(params, 'params');
+                      handleCreateVisible(true);
+                    }}
+                  >
+                    新建事件
+                  </Button>
+                </Space>
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Card>
       {eventList.length > 0
@@ -352,6 +404,7 @@ const Create = () => {
                     top_margin={img.top_margin}
                     left_margin={img.left_margin}
                     eventList={eventList}
+                    lineCoordinate={lineCoordinate}
                     byMag={byMag}
                   />
                   <div style={{ maxHeight: '300px' }}>
