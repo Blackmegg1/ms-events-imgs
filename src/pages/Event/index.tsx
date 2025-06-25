@@ -41,24 +41,42 @@ const Event: React.FC = () => {
     async function fetchDist() {
       const response = await getProjectDist();
       const distObj: any = {};
-      response.forEach((project: { projectName: string; id: number }) => {
-        distObj[project.id] = {
-          text: project.projectName,
-          status: project.projectName,
-        };
-      });
+      response.forEach(
+        (project: {
+          projectName: string;
+          id: number;
+          by_ltp: number;
+          ltp_map: string;
+        }) => {
+          distObj[project.id] = {
+            text: project.projectName,
+            status: project.projectName,
+            by_ltp: project.by_ltp,
+            ltp_map: project.ltp_map,
+          };
+        },
+      );
       setProjectDist(distObj);
       return;
     }
     async function fetchActiveProjectDist() {
       const response = await getActiveProject();
       const distObj: any = {};
-      response.forEach((project: { projectName: string; id: number }) => {
-        distObj[project.id] = {
-          text: project.projectName,
-          status: project.projectName,
-        };
-      });
+      response.forEach(
+        (project: {
+          projectName: string;
+          id: number;
+          by_ltp: number;
+          ltp_map: string;
+        }) => {
+          distObj[project.id] = {
+            text: project.projectName,
+            status: project.projectName,
+            by_ltp: project.by_ltp,
+            ltp_map: project.ltp_map,
+          };
+        },
+      );
       setActiveProjectDist(distObj);
       return;
     }
@@ -156,23 +174,50 @@ const Event: React.FC = () => {
       message.warning('请选择所属工程！');
       return;
     }
-    const formattedTimeRange = formParams.timeRage?.map(
-      (date: string | number | dayjs.Dayjs | Date | null | undefined) =>
-        dayjs(date).format('YYYY-MM-DD'),
+
+    const formattedTimeRange = formParams.timeRage?.map((date) =>
+      dayjs(date).format('YYYY-MM-DD'),
     );
+
     const { list } = await getEventList({
       pageSize: 999999,
       current: 1,
-      // @ts-ignore
       timeBegin: formattedTimeRange?.[0] || null,
       timeEnd: formattedTimeRange?.[1] || null,
       project_id: formParams.project_id || null,
     });
 
-    // 定义标题行
+    const project = projectDist[formParams.project_id];
+    const useLTP = project?.by_ltp === 1;
     let csvHeader = '发震时刻,x,y,z,能量(KJ),震级(M)';
 
-    // 将对象数组转换为CSV行
+    let transformFunc:
+      | ((
+          x: number,
+          y: number,
+          z: number,
+        ) => { x: number; y: number; z: number })
+      | null = null;
+
+    if (useLTP) {
+      csvHeader = '发震时刻,x,y,z,能量(J),震级(M)';
+
+      try {
+        const [src1, src2] = JSON.parse(project.ltp_map || '[]');
+
+        // 构建仿射变换函数
+        transformFunc = createAffineTransform2D(
+          { x: src1.x, y: src1.y },
+          { x: src1.xmap, y: src1.ymap },
+          { x: src2.x, y: src2.y },
+          { x: src2.xmap, y: src2.ymap },
+        );
+      } catch (err) {
+        message.error('大地坐标转换参数格式错误');
+        return;
+      }
+    }
+
     const csvRows = list.map(
       (obj: {
         loc_x: number;
@@ -183,44 +228,26 @@ const Event: React.FC = () => {
         time: string;
       }) => {
         let { loc_x, loc_y, loc_z, energy, magnitude, time } = obj;
-        let formattedTime = dayjs(time).format('YYMMDD');
+        let formattedTime = useLTP
+          ? dayjs(time).format('YYYY/MM/DD HH:mm')
+          : dayjs(time).format('YYMMDD');
 
-        // 如果是 project_id === 40，执行坐标转换
-        if (formParams.project_id === '40') {
-          csvHeader = '发震时刻,x,y,z,能量(J),震级(M)';
-          formattedTime = dayjs(time).format('YYYY/MM/DD HH:mm');
-          energy = energy * 1000;
-
-          const systemRef = { x: 492.79, y: 232 };
-          const geoRef = { x: 85356.99, y: 32827.14 };
-          const systemOrigin = { x: 0, y: 0 };
-          const geoOrigin = { x: 85880.06, y: 32979.52 };
-
-          // 创建转换函数
-          const convertToGeodetic2000 = createAffineTransform2D(
-            systemRef,
-            geoRef,
-            systemOrigin,
-            geoOrigin,
-          );
-
-          // 使用：转换任意点
-          const result = convertToGeodetic2000(loc_x, loc_y, loc_z);
+        if (useLTP && transformFunc) {
+          const result = transformFunc(loc_x, loc_y, loc_z);
           loc_x = Number(result.x.toFixed(2));
           loc_y = Number(result.y.toFixed(2));
           loc_z = Number(result.z.toFixed(2));
+          energy = energy * 1000; // 单位变换
         }
 
         return `${formattedTime},${loc_x},${loc_y},${loc_z},${energy},${magnitude}`;
       },
     );
 
-    // 将标题行和数据行组合成CSV数据
     const csvData = [csvHeader, ...csvRows].join('\n');
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    // @ts-ignore
-    const projectName = projectDist[formParams.project_id]?.text;
+    const projectName = project?.text || '导出数据';
     const fileName = `${projectName} ${formattedTimeRange?.[0]}~${formattedTimeRange?.[1]}.csv`;
 
     const url = URL.createObjectURL(blob);
