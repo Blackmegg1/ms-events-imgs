@@ -10,7 +10,8 @@ export function getProjectList(params: {
   });
 }
 
-export function addProject(data: { porjectName: string; initTime: string }) {
+// 宽松的数据类型，便于后端新增字段（by_ltp、ltp_map、enable_time_format、time_format 等）
+export function addProject(data: any) {
   return request('/api/project', {
     method: 'post',
     data,
@@ -19,10 +20,7 @@ export function addProject(data: { porjectName: string; initTime: string }) {
 
 export function editProject(
   id: number,
-  data: {
-    porjectName: string;
-    initTime: string;
-  },
+  data: any,
 ) {
   return request(`/api/project/${id}`, {
     method: 'put',

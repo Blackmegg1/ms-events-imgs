@@ -25,6 +25,8 @@ interface EditFormProps {
     is_finished: number;
     by_ltp: number;
     ltp_map: string;
+    enable_time_format?: number;
+    time_format?: string | null;
   };
   onCancel: () => void;
 }
@@ -36,6 +38,7 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [useLTP, setUseLTP] = useState(0);
+  const [useTimeFormat, setUseTimeFormat] = useState(0);
 
   const modalFooter = [
     <Button key="back" onClick={onCancel}>
@@ -50,7 +53,7 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
         form
           .validateFields()
           .then((validFields) => {
-            const payload = {
+            const payload: any = {
               ...validFields,
               is_finished: validFields.is_finished ? 1 : 0,
               by_ltp: parseInt(validFields.by_ltp),
@@ -71,8 +74,13 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
                 return;
               }
             } else {
-              payload.ltp_map = '0';
+              // 保留原有 ltp_map，不要清空，避免后续启用时丢失参考点
+              payload.ltp_map = currentRecord?.ltp_map ?? '0';
             }
+
+            // 时间格式开关与格式
+            payload.enable_time_format = parseInt(validFields.enable_time_format ?? 0);
+            payload.time_format = validFields.time_format ?? null;
 
             delete payload.ltp_map_points;
 
@@ -96,25 +104,39 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
 
   useEffect(() => {
     if (currentRecord) {
-      const { projectName, initTime, by_mag, is_finished, by_ltp, ltp_map } =
-        currentRecord;
+      const {
+        projectName,
+        initTime,
+        by_mag,
+        is_finished,
+        by_ltp,
+        ltp_map,
+        enable_time_format = 0,
+        time_format = 'YYYY-MM-DD HH:mm:ss.SSS',
+      } = currentRecord;
+
       form.setFieldsValue({
         projectName,
         initTime: dayjs(),
         by_mag,
         is_finished: is_finished === 1,
         by_ltp,
+        enable_time_format,
+        time_format,
       });
       setUseLTP(by_ltp);
+      setUseTimeFormat(enable_time_format);
 
-      // 解析 ltp_map 为数组形式
-      if (by_ltp === 1 && ltp_map) {
+      // 解析 ltp_map 为数组，便于切换启用/禁用时保留参考点
+      if (ltp_map) {
         try {
           const parsed = JSON.parse(ltp_map);
           form.setFieldValue('ltp_map_points', parsed);
         } catch {
           form.setFieldValue('ltp_map_points', [{}, {}]);
         }
+      } else {
+        form.setFieldValue('ltp_map_points', [{}, {}]);
       }
     }
   }, [currentRecord, form]);
@@ -132,7 +154,7 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
         <Form.Item
           label="项目名称"
           name="projectName"
-          rules={[{ required: true, message: '请输入项目名称!' }]}
+          rules={[{ required: true, message: '请输入项目名称' }]}
         >
           <Input />
         </Form.Item>
@@ -180,7 +202,7 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
             </Form.Item>
 
             {[0, 1].map((idx) => (
-              <Form.Item key={idx} label={`控制点 ${idx + 1}`} required>
+              <Form.Item key={idx} label={`控制点${idx + 1}`} required>
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Space>
                     <Form.Item
@@ -220,6 +242,32 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
           </>
         )}
 
+        <Form.Item
+          label="启用时间格式"
+          name="enable_time_format"
+          rules={[{ required: true, message: '请选择是否启用时间格式' }]}
+        >
+          <Select
+            options={[
+              { label: '启用', value: 1 },
+              { label: '不启用', value: 0 },
+            ]}
+            onChange={(val) => setUseTimeFormat(val)}
+          />
+        </Form.Item>
+
+        {useTimeFormat === 1 && (
+          <Form.Item
+            label="时间格式"
+            name="time_format"
+            rules={[{ required: true, message: '请输入时间格式' }]}
+            tooltip="用于导出/显示的时间格式，例如 YYYY-MM-DD HH:mm:ss.SSS"
+          >
+            <Input placeholder="YYYY-MM-DD HH:mm:ss.SSS" />
+          </Form.Item>
+        )}
+        
+        {/* 项目状态放在最后 */}
         <Form.Item
           label={
             <span>

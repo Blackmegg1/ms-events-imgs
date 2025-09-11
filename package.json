@@ -1,5 +1,6 @@
 {
   "private": true,
+  "version": "1.3.0",
   "author": "Blackmegg1 <1141066795@qq.com>",
   "scripts": {
     "dev": "max dev",
@@ -21,6 +22,7 @@
     "dayjs": "^1.11.10",
     "echarts": "^5.5.1",
     "echarts-gl": "^2.0.9",
+    "encoding": "^0.1.13",
     "moment": "^2.30.1",
     "three": "^0.167.0",
     "typings": "^2.1.1"

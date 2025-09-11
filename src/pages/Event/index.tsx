@@ -11,6 +11,7 @@ import dayjs from 'dayjs';
 import { useEffect, useRef, useState } from 'react';
 import BatchImport from './components/BatchImport';
 import CreateForm from './components/CreateForm';
+import SimulateModal from './components/SimulateModal';
 
 const { getEventList, addEvent, batchDeleteEvents } =
   eventServices.EventController;
@@ -20,6 +21,7 @@ const Event: React.FC = () => {
   const [form] = Form.useForm();
   const [createModalVisible, handleCreateVisible] = useState(false);
   const [batchModalVisible, handleBatchVisible] = useState(false);
+  const [simulateModalVisible, setSimulateModalVisible] = useState(false);
   const [selectedRowsState, setSelectedRows] = useState([]);
   const [projectDist, setProjectDist] = useState({});
   const [activeProjectDist, setActiveProjectDist] = useState({});
@@ -47,12 +49,16 @@ const Event: React.FC = () => {
           id: number;
           by_ltp: number;
           ltp_map: string;
+          enable_time_format?: number;
+          time_format?: string;
         }) => {
           distObj[project.id] = {
             text: project.projectName,
             status: project.projectName,
             by_ltp: project.by_ltp,
             ltp_map: project.ltp_map,
+            enable_time_format: (project as any).enable_time_format,
+            time_format: (project as any).time_format,
           };
         },
       );
@@ -68,12 +74,16 @@ const Event: React.FC = () => {
           id: number;
           by_ltp: number;
           ltp_map: string;
+          enable_time_format?: number;
+          time_format?: string;
         }) => {
           distObj[project.id] = {
             text: project.projectName,
             status: project.projectName,
             by_ltp: project.by_ltp,
             ltp_map: project.ltp_map,
+            enable_time_format: (project as any).enable_time_format,
+            time_format: (project as any).time_format,
           };
         },
       );
@@ -189,6 +199,15 @@ const Event: React.FC = () => {
 
     const project = projectDist[formParams.project_id];
     const useLTP = project?.by_ltp === 1;
+    const useTimeFormat = project?.enable_time_format === 1;
+    const customTimeFormat = project?.time_format as string | undefined;
+
+    const targetFormat = useTimeFormat && customTimeFormat
+      ? customTimeFormat
+      : useLTP
+      ? 'YYYY/MM/DD HH:mm'
+      : 'YYMMDD';
+    const requiresTimeOfDay = /[HhmsS]/.test(targetFormat);
     let csvHeader = '发震时刻,x,y,z,能量(KJ),震级(M)';
 
     let transformFunc:
@@ -218,7 +237,7 @@ const Event: React.FC = () => {
       }
     }
 
-    const csvRows = list.map(
+    const rowsWithTime = list.map(
       (obj: {
         loc_x: number;
         loc_y: number;
@@ -228,9 +247,12 @@ const Event: React.FC = () => {
         time: string;
       }) => {
         let { loc_x, loc_y, loc_z, energy, magnitude, time } = obj;
-        let formattedTime = useLTP
-          ? dayjs(time).format('YYYY/MM/DD HH:mm')
-          : dayjs(time).format('YYMMDD');
+        let base = dayjs(time).startOf('day');
+        if (requiresTimeOfDay) {
+          const randMs = Math.floor(Math.random() * 24 * 60 * 60 * 1000);
+          base = base.add(randMs, 'millisecond');
+        }
+        const formattedTime = base.format(targetFormat);
 
         if (useLTP && transformFunc) {
           const result = transformFunc(loc_x, loc_y, loc_z);
@@ -240,9 +262,15 @@ const Event: React.FC = () => {
           energy = energy * 1000; // 单位变换
         }
 
-        return `${formattedTime},${loc_x},${loc_y},${loc_z},${energy},${magnitude}`;
+        return {
+          t: base.valueOf(),
+          row: `${formattedTime},${loc_x},${loc_y},${loc_z},${energy},${magnitude}`,
+        };
       },
     );
+    // 排序：若包含随机时分秒则按具体时刻，否则按日期
+    rowsWithTime.sort((a, b) => a.t - b.t);
+    const csvRows = rowsWithTime.map((r) => r.row);
 
     const csvData = [csvHeader, ...csvRows].join('\n');
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
@@ -285,6 +313,13 @@ const Event: React.FC = () => {
             onClick={() => handleBatchVisible(true)}
           >
             批量导入
+          </Button>,
+          <Button
+            key="4"
+            type="default"
+            onClick={() => setSimulateModalVisible(true)}
+          >
+            数据模拟
           </Button>,
           <Button key="3" type="default" onClick={() => handleBatchExport()}>
             批量导出
@@ -364,6 +399,17 @@ const Event: React.FC = () => {
         onOk={() => {
           handleBatchVisible(false);
           tableRef.current.reload();
+        }}
+        projectDist={activeProjectDist}
+      />
+      <SimulateModal
+        modalVisible={simulateModalVisible}
+        onCancel={() => {
+          setSimulateModalVisible(false);
+        }}
+        onOk={() => {
+          setSimulateModalVisible(false);
+          tableRef.current?.reload?.();
         }}
         projectDist={activeProjectDist}
       />
