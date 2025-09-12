@@ -34,42 +34,30 @@ const SimulateModal: React.FC<PropsWithChildren<SimulateModalProps>> = ({
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
-      const {
-        project_id,
-        count,
-        xMin,
-        xMax,
-        yMin,
-        yMax,
-        zMin,
-        zMax,
-        timeRange,
-        energyMin,
-        energyMax,
-      } = values;
+      const { project_id, count, xMin, xMax, yMin, yMax, zMin, zMax, timeRange, energyMin, energyMax } = values;
 
-      // 鍩烘湰鑼冨洿鏍￠獙
       const checks: Array<[number, number, string]> = [
-        [xMin, xMax, 'X鑼冨洿'],
-        [yMin, yMax, 'Y鑼冨洿'],
-        [zMin, zMax, 'Z鑼冨洿'],
+        [xMin, xMax, 'X范围'],
+        [yMin, yMax, 'Y范围'],
+        [zMin, zMax, 'Z范围'],
       ];
       for (const [min, max, label] of checks) {
         if (min >= max) {
-          message.error(`${label}鏈€灏忓€煎簲灏忎簬鏈€澶у€糮);
+          message.error(`${label}最小值应小于最大值`);
           return;
         }
       }
+
       if (energyMin == null || energyMax == null || energyMin === '' || energyMax === '') {
-        message.error('璇峰～鍐欒兘閲忚寖鍥?);
+        message.error('请填写能量范围');
         return;
       }
       if (Number(energyMin) < 0 || Number(energyMax) <= 0) {
-        message.error('鑳介噺鑼冨洿闇€涓烘鏁?);
+        message.error('能量范围需为正数');
         return;
       }
       if (Number(energyMin) >= Number(energyMax)) {
-        message.error('鑳介噺鑼冨洿鏈€灏忓€煎簲灏忎簬鏈€澶у€?);
+        message.error('能量范围最小值应小于最大值');
         return;
       }
 
@@ -77,20 +65,20 @@ const SimulateModal: React.FC<PropsWithChildren<SimulateModalProps>> = ({
       const startMs = dayjs(start).valueOf();
       const endMs = dayjs(end).valueOf();
       if (!startMs || !endMs || startMs >= endMs) {
-        message.error('鏃堕棿鑼冨洿涓嶅悎娉?);
+        message.error('时间范围不合法');
         return;
       }
 
       const total = Number(count);
       if (!Number.isFinite(total) || total <= 0) {
-        message.error('妯℃嫙浜嬩欢涓暟闇€涓烘鏁存暟');
+        message.error('模拟事件个数需为正整数');
         return;
       }
 
       setSubmitting(true);
-      message.loading({ content: `姝ｅ湪妯℃嫙 ${total} 鏉′簨浠?..`, key: 'simulate' });
+      message.loading({ content: `正在模拟 ${total} 条事件...`, key: 'simulate' });
 
-      const concurrency = 20; // 骞跺彂鏁伴噺
+      const concurrency = 20;
       let successCount = 0;
       let failCount = 0;
 
@@ -99,11 +87,12 @@ const SimulateModal: React.FC<PropsWithChildren<SimulateModalProps>> = ({
         const loc_y = Number(randBetween(yMin, yMax).toFixed(2));
         const loc_z = Number(randBetween(zMin, zMax).toFixed(2));
         const randTime = new Date(randBetween(startMs, endMs));
-        // 鏃堕棿鏍煎紡锛歒YYY-MM-DD HH:mm:ss.SSS锛堟绉掔骇绮惧害锛?        const time = dayjs(randTime).format('YYYY-MM-DD HH:mm:ss.SSS');
+        const time = dayjs(randTime).format('YYYY-MM-DD HH:mm:ss.SSS');
 
-        // 闅忔満鑳介噺(KJ)
+        // 随机能量(KJ)
         const energy = Number(randBetween(Number(energyMin), Number(energyMax)).toFixed(3));
-        // 鎸夊叕寮?log10(E) = 1.8 + 1.9M 璁＄畻闇囩骇锛圗 鍗曚綅涓?KJ锛?        const energyJ = energy * 1000;
+        // 先将 KJ 转为 J，再按公式计算震级：log10(E) = 1.8 + 1.9M
+        const energyJ = energy * 1000;
         const magnitude = Number(((Math.log10(energyJ) - 1.8) / 1.9).toFixed(3));
 
         try {
@@ -127,11 +116,11 @@ const SimulateModal: React.FC<PropsWithChildren<SimulateModalProps>> = ({
         await Promise.allSettled(slice.map((fn) => fn()));
       }
 
-      message.success({ content: `妯℃嫙瀹屾垚锛氭垚鍔?${successCount} 鏉★紝澶辫触 ${failCount} 鏉, key: 'simulate' });
+      message.success({ content: `模拟完成：成功 ${successCount} 条，失败 ${failCount} 条`, key: 'simulate' });
       form.resetFields();
       onOk();
     } catch (e) {
-      // validation error
+      // ignore
     } finally {
       setSubmitting(false);
     }
@@ -145,29 +134,29 @@ const SimulateModal: React.FC<PropsWithChildren<SimulateModalProps>> = ({
   return (
     <Modal
       open={modalVisible}
-      title="鏁版嵁妯℃嫙"
+      title="数据模拟"
       onCancel={handleCancel}
       onOk={handleOk}
       confirmLoading={submitting}
       width={720}
     >
       <Form form={form} layout="vertical">
-        <Form.Item name="project_id" label="鎵€灞為」鐩? rules={[{ required: true, message: '璇烽€夋嫨鎵€灞為」鐩? }]}>
-          <Select options={projectOptions} placeholder="璇烽€夋嫨椤圭洰" />
+        <Form.Item name="project_id" label="所属项目" rules={[{ required: true, message: '请选择所属项目' }]}>
+          <Select options={projectOptions} placeholder="请选择项目" />
         </Form.Item>
 
-        <Form.Item name="count" label="妯℃嫙浜嬩欢涓暟" rules={[{ required: true, message: '璇疯緭鍏ヤ釜鏁? }]}>
-          <InputNumber min={1} precision={0} style={{ width: '100%' }} placeholder="渚嬪 100" />
+        <Form.Item name="count" label="模拟事件个数" rules={[{ required: true, message: '请输入个数' }]}>
+          <InputNumber min={1} precision={0} style={{ width: '100%' }} placeholder="例如 100" />
         </Form.Item>
 
         <Row gutter={12}>
           <Col span={12}>
-            <Form.Item label="X鑼冨洿 (鏈€灏?" name="xMin" rules={[{ required: true, message: '璇疯緭鍏鏈€灏忓€? }]}>
+            <Form.Item label="X范围 (最小)" name="xMin" rules={[{ required: true, message: '请输入X最小值' }]}>
               <InputNumber style={{ width: '100%' }} />
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item label="X鑼冨洿 (鏈€澶?" name="xMax" rules={[{ required: true, message: '璇疯緭鍏鏈€澶у€? }]}>
+            <Form.Item label="X范围 (最大)" name="xMax" rules={[{ required: true, message: '请输入X最大值' }]}>
               <InputNumber style={{ width: '100%' }} />
             </Form.Item>
           </Col>
@@ -175,12 +164,12 @@ const SimulateModal: React.FC<PropsWithChildren<SimulateModalProps>> = ({
 
         <Row gutter={12}>
           <Col span={12}>
-            <Form.Item label="Y鑼冨洿 (鏈€灏?" name="yMin" rules={[{ required: true, message: '璇疯緭鍏鏈€灏忓€? }]}>
+            <Form.Item label="Y范围 (最小)" name="yMin" rules={[{ required: true, message: '请输入Y最小值' }]}>
               <InputNumber style={{ width: '100%' }} />
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item label="Y鑼冨洿 (鏈€澶?" name="yMax" rules={[{ required: true, message: '璇疯緭鍏鏈€澶у€? }]}>
+            <Form.Item label="Y范围 (最大)" name="yMax" rules={[{ required: true, message: '请输入Y最大值' }]}>
               <InputNumber style={{ width: '100%' }} />
             </Form.Item>
           </Col>
@@ -188,35 +177,35 @@ const SimulateModal: React.FC<PropsWithChildren<SimulateModalProps>> = ({
 
         <Row gutter={12}>
           <Col span={12}>
-            <Form.Item label="Z鑼冨洿 (鏈€灏?" name="zMin" rules={[{ required: true, message: '璇疯緭鍏鏈€灏忓€? }]}>
+            <Form.Item label="Z范围 (最小)" name="zMin" rules={[{ required: true, message: '请输入Z最小值' }]}>
               <InputNumber style={{ width: '100%' }} />
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item label="Z鑼冨洿 (鏈€澶?" name="zMax" rules={[{ required: true, message: '璇疯緭鍏鏈€澶у€? }]}>
+            <Form.Item label="Z范围 (最大)" name="zMax" rules={[{ required: true, message: '请输入Z最大值' }]}>
               <InputNumber style={{ width: '100%' }} />
             </Form.Item>
           </Col>
         </Row>
 
-        <Form.Item name="timeRange" label="鏃堕棿鑼冨洿" rules={[{ required: true, message: '璇烽€夋嫨鏃堕棿鑼冨洿' }]}>
+        <Form.Item name="timeRange" label="时间范围" rules={[{ required: true, message: '请选择时间范围' }]}>
           <DatePicker.RangePicker style={{ width: '100%' }} />
         </Form.Item>
 
         <Row gutter={12}>
           <Col span={12}>
-            <Form.Item label="鑳介噺鑼冨洿 (鏈€灏? KJ)" name="energyMin" rules={[{ required: true, message: '璇疯緭鍏ヨ兘閲忔渶灏忓€? }]}>
+            <Form.Item label="能量范围 (最小, KJ)" name="energyMin" rules={[{ required: true, message: '请输入能量最小值' }]}>
               <InputNumber style={{ width: '100%' }} min={0} />
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item label="鑳介噺鑼冨洿 (鏈€澶? KJ)" name="energyMax" rules={[{ required: true, message: '璇疯緭鍏ヨ兘閲忔渶澶у€? }]}>
+            <Form.Item label="能量范围 (最大, KJ)" name="energyMax" rules={[{ required: true, message: '请输入能量最大值' }]}>
               <InputNumber style={{ width: '100%' }} min={0} />
             </Form.Item>
           </Col>
         </Row>
         <Form.Item colon={false} label=" ">
-          <div style={{ color: '#888' }}>鎹㈢畻鍏紡锛歭og10(E[KJ]) = 1.8 + 1.9M</div>
+          <div style={{ color: '#888' }}>换算公式：log10(E[J]) = 1.8 + 1.9M</div>
         </Form.Item>
       </Form>
     </Modal>
@@ -224,4 +213,3 @@ const SimulateModal: React.FC<PropsWithChildren<SimulateModalProps>> = ({
 };
 
 export default SimulateModal;
-
