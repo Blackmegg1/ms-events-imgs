@@ -79,8 +79,13 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
             }
 
             // 时间格式开关与格式
-            payload.enable_time_format = parseInt(validFields.enable_time_format ?? 0);
-            payload.time_format = validFields.time_format ?? null;
+            const enableTimeFormat = Number(validFields.enable_time_format ?? 0);
+            const timeFormatValue =
+              form.getFieldValue('time_format') ?? currentRecord?.time_format ?? null;
+
+            payload.enable_time_format = enableTimeFormat;
+            // 保留历史的时间格式配置，避免在关闭后重新启用时丢失
+            payload.time_format = timeFormatValue;
 
             delete payload.ltp_map_points;
 
