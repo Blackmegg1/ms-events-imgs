@@ -26,7 +26,7 @@ const normFile = (e: any) => {
 
 const uploadButton = (
   <button style={{ border: 0, background: 'none' }} type="button">
-    <div style={{ marginTop: 8 }}>上传PNG图片</div>
+    <div style={{ marginTop: 8 }}>上传底图</div>
   </button>
 );
 

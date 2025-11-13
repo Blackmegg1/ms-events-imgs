@@ -1,1 +1,1 @@
-export const DEFAULT_NAME = '微震电法数据处理系统v1.3.0';
+export const DEFAULT_NAME = '透明地质数据处理系统v1.3.0';

@@ -7,7 +7,7 @@ export default defineConfig({
   initialState: {},
   request: {},
   layout: {
-    title: '微震电法数据处理系统',
+    title: '透明地质数据处理系统',
   },
   routes: [
     {
