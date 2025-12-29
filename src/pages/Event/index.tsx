@@ -263,13 +263,13 @@ const Event: React.FC = () => {
         }
 
         return {
-          t: base.valueOf(),
+          // t: base.valueOf(),
           row: `${formattedTime},${loc_x},${loc_y},${loc_z},${energy},${magnitude}`,
         };
       },
     );
-    // 排序：若包含随机时分秒则按具体时刻，否则按日期
-    rowsWithTime.sort((a, b) => a.t - b.t);
+    // // 排序：若包含随机时分秒则按具体时刻，否则按日期
+    // rowsWithTime.sort((a, b) => a.t - b.t);
     const csvRows = rowsWithTime.map((r) => r.row);
 
     const csvData = [csvHeader, ...csvRows].join('\n');
