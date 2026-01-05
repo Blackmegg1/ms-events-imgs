@@ -18,6 +18,7 @@ import {
   Select,
   Space,
   message,
+  Checkbox,
 } from 'antd';
 import { useForm } from 'antd/es/form/Form';
 import dayjs from 'dayjs';
@@ -39,6 +40,7 @@ const Create = () => {
   const [createEventForm] = useForm();
   const [lineCoordinate, setLineCoordinate] = useState<[number[]] | null>([[]]);
   const [createModalVisible, handleCreateVisible] = useState(false);
+  const [highlightSettings, setHighlightSettings] = useState({ threshold: 2000, enabled: false });
 
   useEffect(() => {
     async function fetchDist() {
@@ -306,6 +308,16 @@ const Create = () => {
                 <Input placeholder="如：[100,200],[300,400]" />
               </Form.Item>
             </Col>
+            <Col span={6}>
+              <Form.Item label="高能事件阈值(J)" name="highlightThreshold" initialValue={2000}>
+                <InputNumber placeholder="默认2000" style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={4}>
+              <Form.Item label="开启高能事件标记" name="isHighlightEnabled" valuePropName="checked" initialValue={false}>
+                <Checkbox>开启</Checkbox>
+              </Form.Item>
+            </Col>
             <Col span={24}>
               <Form.Item>
                 <Space>
@@ -355,6 +367,10 @@ const Create = () => {
                           message.error('采线坐标解析失败');
                         }
                       }
+                      setHighlightSettings({
+                        threshold: params.highlightThreshold || 2000,
+                        enabled: params.isHighlightEnabled || false,
+                      });
                     }}
                   >
                     成图
@@ -375,8 +391,9 @@ const Create = () => {
           </Row>
         </Form>
       </Card>
-      {eventList.length > 0
-        ? imgList.map((img: any) => {
+      {
+        eventList.length > 0
+          ? imgList.map((img: any) => {
             // img中img_blob为base64格式，已在后端处理
             return (
               <Card
@@ -406,6 +423,8 @@ const Create = () => {
                     eventList={eventList}
                     lineCoordinate={lineCoordinate}
                     byMag={byMag}
+                    highlightThreshold={highlightSettings.threshold}
+                    isHighlightEnabled={highlightSettings.enabled}
                   />
                   <div style={{ maxHeight: '300px' }}>
                     <ColorScale title="微震震级(M)" />
@@ -414,7 +433,8 @@ const Create = () => {
               </Card>
             );
           })
-        : null}
+          : null
+      }
       <CreateForm
         onCancel={() => {
           handleCreateVisible(false);
@@ -461,7 +481,7 @@ const Create = () => {
           columns={columns}
         />
       </CreateForm>
-    </PageContainer>
+    </PageContainer >
   );
 };
 

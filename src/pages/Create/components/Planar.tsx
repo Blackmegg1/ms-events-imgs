@@ -16,6 +16,8 @@ interface Iprops {
   eventList: any[];
   byMag: number;
   lineCoordinate: [number[], number[]] | null;
+  highlightThreshold?: number;
+  isHighlightEnabled?: boolean;
 }
 
 const Planar: React.FC<Iprops> = (props: Iprops) => {
@@ -34,6 +36,8 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     eventList,
     lineCoordinate,
     byMag,
+    highlightThreshold = 2000,
+    isHighlightEnabled = false,
   } = props;
 
   const canvasRef = createRef<HTMLCanvasElement>();
@@ -85,7 +89,18 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
       const rgbValues = evt.color.match(/\d+/g).map(Number);
       const r = getRadius(+evt.magnitude);
 
-      ctx.fillStyle = `rgba(${rgbValues[0]}, ${rgbValues[1]}, ${rgbValues[2]}, 0.6)`;
+      // 能量单位是KJ
+      const energyJ = Number(evt.energy) * 1000;
+      // 默认阈值2000J
+      const threshold = highlightThreshold || 2000;
+      const isHighEnergy = energyJ > threshold;
+
+      if (isHighlightEnabled && isHighEnergy) {
+        ctx.fillStyle = `rgba(255, 0, 0, 0.8)`;
+      } else {
+        ctx.fillStyle = `rgba(${rgbValues[0]}, ${rgbValues[1]}, ${rgbValues[2]}, 0.6)`;
+      }
+
       ctx.strokeStyle = `rgba(255,255,255,0)`;
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -223,15 +238,43 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
         canvas?.removeEventListener('click', listener);
       });
     };
-  }, [state, img_base64, props]);
+  }, [state, img_base64, props, isHighlightEnabled, highlightThreshold]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        width: '90%',
-      }}
-    />
+    <div style={{ position: 'relative', width: '100%' }}>
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: '100%',
+        }}
+      />
+      {isHighlightEnabled && (
+        <div
+          style={{
+            position: 'absolute',
+            right: '0%',
+            display: 'flex',
+            alignItems: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+            padding: '5px',
+            borderRadius: '4px',
+          }}
+        >
+          <div
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              backgroundColor: 'rgba(255, 0, 0, 0.8)',
+              marginRight: 5,
+            }}
+          ></div>
+          <span style={{ fontSize: 12 }}>
+            高能事件(&gt;{highlightThreshold}J)
+          </span>
+        </div>
+      )}
+    </div>
   );
 };
 

@@ -18,6 +18,11 @@ interface UpdateItem {
 
 const updates: UpdateItem[] = [
   {
+    date: '2026-01-04',
+    title: '平面分布图支持高能事件标记',
+    description: '新增高能事件预警功能，可设置能量阈值并高亮显示大于该阈值的微震事件。',
+  },
+  {
     date: '2025-09-11',
     title: '事件模拟与导出时间优化',
     icon: <ScheduleOutlined />,
