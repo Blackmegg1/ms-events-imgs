@@ -205,17 +205,17 @@ const Event: React.FC = () => {
     const targetFormat = useTimeFormat && customTimeFormat
       ? customTimeFormat
       : useLTP
-      ? 'YYYY/MM/DD HH:mm'
-      : 'YYMMDD';
+        ? 'YYYY/MM/DD HH:mm'
+        : 'YYMMDD';
     const requiresTimeOfDay = /[HhmsS]/.test(targetFormat);
     let csvHeader = '发震时刻,x,y,z,能量(KJ),震级(M)';
 
     let transformFunc:
       | ((
-          x: number,
-          y: number,
-          z: number,
-        ) => { x: number; y: number; z: number })
+        x: number,
+        y: number,
+        z: number,
+      ) => { x: number; y: number; z: number })
       | null = null;
 
     if (useLTP) {
@@ -259,7 +259,7 @@ const Event: React.FC = () => {
           loc_x = Number(result.x.toFixed(2));
           loc_y = Number(result.y.toFixed(2));
           loc_z = Number(result.z.toFixed(2));
-          energy = energy * 1000; // 单位变换
+          energy = Number((energy * 1000).toFixed(2));
         }
 
         return {
