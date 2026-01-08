@@ -19,6 +19,8 @@ import {
   Space,
   message,
   Checkbox,
+  Radio,
+  Switch,
 } from 'antd';
 import { useForm } from 'antd/es/form/Form';
 import dayjs from 'dayjs';
@@ -40,7 +42,11 @@ const Create = () => {
   const [createEventForm] = useForm();
   const [lineCoordinate, setLineCoordinate] = useState<[number[]] | null>([[]]);
   const [createModalVisible, handleCreateVisible] = useState(false);
-  const [highlightSettings, setHighlightSettings] = useState({ threshold: 2000, enabled: false });
+  const [highlightSettings, setHighlightSettings] = useState({
+    threshold: 2000,
+    enabled: false,
+    style: 'red' as 'red' | 'arrow',
+  });
 
   useEffect(() => {
     async function fetchDist() {
@@ -308,14 +314,22 @@ const Create = () => {
                 <Input placeholder="如：[100,200],[300,400]" />
               </Form.Item>
             </Col>
-            <Col span={6}>
-              <Form.Item label="高能事件阈值(J)" name="highlightThreshold" initialValue={2000}>
-                <InputNumber placeholder="默认2000" style={{ width: '100%' }} />
+            <Col span={5}>
+              <Form.Item name="highlightThreshold" label="高能事件阈值(J)" initialValue={2000}>
+                <InputNumber style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={4}>
-              <Form.Item label="开启高能事件标记" name="isHighlightEnabled" valuePropName="checked" initialValue={false}>
-                <Checkbox>开启</Checkbox>
+            <Col span={3}>
+              <Form.Item name="isHighlightEnabled" label="高能事件标记开关" valuePropName="checked" initialValue={false}>
+                <Switch checkedChildren="开" unCheckedChildren="关" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="highlightStyle" label="标记样式" initialValue="red">
+                <Radio.Group optionType="button" buttonStyle="solid">
+                  <Radio.Button value="red">红色标记</Radio.Button>
+                  <Radio.Button value="arrow">箭头标注</Radio.Button>
+                </Radio.Group>
               </Form.Item>
             </Col>
             <Col span={24}>
@@ -370,6 +384,7 @@ const Create = () => {
                       setHighlightSettings({
                         threshold: params.highlightThreshold || 2000,
                         enabled: params.isHighlightEnabled || false,
+                        style: params.highlightStyle || 'red',
                       });
                     }}
                   >
@@ -425,6 +440,7 @@ const Create = () => {
                     byMag={byMag}
                     highlightThreshold={highlightSettings.threshold}
                     isHighlightEnabled={highlightSettings.enabled}
+                    highlightStyle={highlightSettings.style}
                   />
                   <div style={{ maxHeight: '300px' }}>
                     <ColorScale title="微震震级(M)" />

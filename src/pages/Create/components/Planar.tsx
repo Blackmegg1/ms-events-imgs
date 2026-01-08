@@ -1,5 +1,5 @@
 import { message } from 'antd';
-import { createRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
 interface Iprops {
   norm_axis: string;
@@ -18,6 +18,7 @@ interface Iprops {
   lineCoordinate: [number[], number[]] | null;
   highlightThreshold?: number;
   isHighlightEnabled?: boolean;
+  highlightStyle?: 'red' | 'arrow';
 }
 
 const Planar: React.FC<Iprops> = (props: Iprops) => {
@@ -38,15 +39,21 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     byMag,
     highlightThreshold = 2000,
     isHighlightEnabled = false,
+    highlightStyle = 'red',
   } = props;
 
-  const canvasRef = createRef<HTMLCanvasElement>();
+  /* FIX: Use useRef instead of createRef */
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  /* FIX: Store click targets in a ref to access them in a single event handler */
+  const clickTargetsRef = useRef<{ x: number; y: number; r: number; evt: any }[]>([]);
+
   const [state, setState] = useState({
     width: 0,
     height: 0,
     minx: 0,
     miny: 0,
   });
+
 
   function getXY(msevt: { loc_y: any; loc_z: any; loc_x: any }) {
     let x, y;
@@ -76,11 +83,44 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     }
   }
 
-  function drawMsEvents(cvs: any, ctx: any, listeners) {
+  function drawMsEvents(cvs: any, ctx: any) {
+    clickTargetsRef.current = [];
+
     const wRatio = (cvs.width - left_margin) / state.width;
     const hRatio = (cvs.height - top_margin) / state.height;
 
-    // const engyRatio = maxRadius / maxEnergy;
+    const highEnergyEventsToLabel: { x: number; y: number; energyJ: number }[] =
+      [];
+    const occupiedRects: { x: number; y: number; w: number; h: number }[] = [];
+
+    // Helper to check collision
+    const isColliding = (
+      rect: { x: number; y: number; w: number; h: number },
+      rects: { x: number; y: number; w: number; h: number }[],
+    ) => {
+      // Boundary check
+      if (
+        rect.x < 0 ||
+        rect.y < 0 ||
+        rect.x + rect.w > cvs.width ||
+        rect.y + rect.h > cvs.height
+      ) {
+        return true;
+      }
+      // Overlap check
+      for (const r of rects) {
+        if (
+          rect.x < r.x + r.w &&
+          rect.x + rect.w > r.x &&
+          rect.y < r.y + r.h &&
+          rect.y + rect.h > r.y
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
+
     for (let i = 0; i < eventList.length; i++) {
       const evt = eventList[i];
       const xy = getXY(evt);
@@ -95,7 +135,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
       const threshold = highlightThreshold || 2000;
       const isHighEnergy = energyJ > threshold;
 
-      if (isHighlightEnabled && isHighEnergy) {
+      if (isHighlightEnabled && isHighEnergy && highlightStyle === 'red') {
         ctx.fillStyle = `rgba(255, 0, 0, 0.8)`;
       } else {
         ctx.fillStyle = `rgba(${rgbValues[0]}, ${rgbValues[1]}, ${rgbValues[2]}, 0.6)`;
@@ -107,24 +147,114 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
       ctx.arc(x, y, r, 0, 2 * Math.PI);
       ctx.stroke();
       ctx.fill();
-      const handleClick = (event: { clientX: number; clientY: number }) => {
-        const rect = cvs.getBoundingClientRect();
-        const mouseX = event.clientX - rect.left;
-        const mouseY = event.clientY - rect.top;
-        // 判断点击位置是否在点的范围内
-        if (
-          Math.pow(mouseX - x, 2) + Math.pow(mouseY - y, 2) <
-          Math.pow(r, 2)
-        ) {
-          message.info(
-            `事件坐标:(${evt.loc_x},${evt.loc_y},${evt.loc_z}) 时间:${evt.time} 震级:${evt.magnitude}M 能量:${evt.energy}KJ`,
-          );
-        }
-      };
-      // 为点添加事件监听器
-      cvs.addEventListener('click', handleClick);
-      listeners.push(handleClick);
+
+      // Collect high energy events for later processing
+      if (isHighlightEnabled && isHighEnergy && highlightStyle === 'arrow') {
+        highEnergyEventsToLabel.push({ x, y, energyJ });
+      }
+
+      clickTargetsRef.current.push({ x, y, r, evt });
     }
+
+    // Process labels
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+
+    highEnergyEventsToLabel.forEach((evt) => {
+      const { x, y, energyJ } = evt;
+      const text = `${energyJ.toFixed(0)}J`;
+      const textMetrics = ctx.measureText(text);
+      const textWidth = textMetrics.width;
+      const textHeight = 16; // Approx height
+
+      // Candidate angles to try: -45, -30, -60, -90, -135, -150, -120, -180, 0, 45...
+      // Prioritize upward directions
+      const angles = [
+        -Math.PI / 4, // -45 (Default)
+        -Math.PI / 6, // -30
+        -Math.PI / 3, // -60
+        -Math.PI / 2, // -90
+        (-3 * Math.PI) / 4, // -135
+        0, // 0
+        (-5 * Math.PI) / 6, // -150
+        Math.PI, // 180
+      ];
+
+      const arrowLength = 30;
+      let bestConfig = null;
+
+      for (const angle of angles) {
+        const endX = x + Math.cos(angle) * arrowLength;
+        const endY = y + Math.sin(angle) * arrowLength;
+
+        // Calculate text bouning box. 
+        // Text is drawn at endX + 2, endY.
+        // textBaseline is bottom, so y range is [endY - textHeight, endY]
+        // textAlign is left, so x range is [endX + 2, endX + 2 + textWidth]
+
+        // We add some padding for better spacing
+        const padding = 2;
+        const labelRect = {
+          x: endX,
+          y: endY - textHeight,
+          w: textWidth + 4, // +2 margin +2 padding
+          h: textHeight + 2,
+        };
+
+        if (!isColliding(labelRect, occupiedRects)) {
+          bestConfig = { endX, endY, angle };
+          occupiedRects.push(labelRect);
+          break;
+        }
+      }
+
+      // If no collision-free spot found, fallback to default (-45) but still add to occupied to try to push others away if possible?
+      // Or just draw it anyway.
+      if (!bestConfig) {
+        // Fallback to default
+        const angle = -Math.PI / 4;
+        const endX = x + Math.cos(angle) * arrowLength;
+        const endY = y + Math.sin(angle) * arrowLength;
+        bestConfig = { endX, endY, angle };
+        // Still mark as occupied
+        occupiedRects.push({
+          x: endX,
+          y: endY - textHeight,
+          w: textWidth + 4,
+          h: textHeight + 2,
+        });
+      }
+
+      const { endX, endY, angle } = bestConfig;
+
+      // Draw Arrow
+      ctx.beginPath();
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 3;
+      ctx.moveTo(x, y);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+
+      // Draw Arrowhead
+      const headLen = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(
+        x + headLen * Math.cos(angle - Math.PI / 6),
+        y + headLen * Math.sin(angle - Math.PI / 6),
+      );
+      ctx.moveTo(x, y);
+      ctx.lineTo(
+        x + headLen * Math.cos(angle + Math.PI / 6),
+        y + headLen * Math.sin(angle + Math.PI / 6),
+      );
+      ctx.stroke();
+
+      // Draw Text
+      ctx.fillStyle = 'red';
+      ctx.fillText(text, endX + 2, endY);
+    });
   }
 
   function drawLineSegment(cvs: any, ctx: any, coords: number[][]) {
@@ -200,7 +330,6 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const listeners: any[] = [];
     if (canvas) {
       const canvasWidth = canvas.clientWidth;
       canvas.width = canvasWidth;
@@ -225,7 +354,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
           img.width * ratio,
           img.height * hRatio,
         );
-        drawMsEvents(canvas, ctx, listeners);
+        drawMsEvents(canvas, ctx);
         // 绘制采线
         if (props.norm_axis === 'z' && lineCoordinate?.length === 2) {
           drawLineSegment(canvas, ctx, lineCoordinate);
@@ -233,16 +362,35 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
       };
       img.src = `data:image/png;base64,${img_base64}`;
     }
-    return () => {
-      listeners.forEach((listener) => {
-        canvas?.removeEventListener('click', listener);
-      });
-    };
-  }, [state, img_base64, props, isHighlightEnabled, highlightThreshold]);
+  }, [state, img_base64, props, isHighlightEnabled, highlightThreshold, highlightStyle]);
+
+  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    const targets = clickTargetsRef.current;
+    for (const target of targets) {
+      const { x, y, r, evt } = target;
+      if (
+        Math.pow(mouseX - x, 2) + Math.pow(mouseY - y, 2) <
+        Math.pow(r, 2)
+      ) {
+        message.info(
+          `事件坐标:(${evt.loc_x},${evt.loc_y},${evt.loc_z}) 时间:${evt.time} 震级:${evt.magnitude}M 能量:${evt.energy}KJ`,
+        );
+        return; // Only handle top-most (or first found) event
+      }
+    }
+  };
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <canvas
+        onClick={handleCanvasClick}
         ref={canvasRef}
         style={{
           width: '100%',
@@ -265,12 +413,14 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
               width: 10,
               height: 10,
               borderRadius: '50%',
-              backgroundColor: 'rgba(255, 0, 0, 0.8)',
+              backgroundColor: highlightStyle === 'arrow' ? 'transparent' : 'rgba(255, 0, 0, 0.8)',
+              border: highlightStyle === 'arrow' ? '2px solid red' : 'none', // Simple representation for arrow style in legend? Or just text.
               marginRight: 5,
+              display: highlightStyle === 'arrow' ? 'none' : 'block'
             }}
           ></div>
           <span style={{ fontSize: 12 }}>
-            高能事件(&gt;{highlightThreshold}J)
+            {highlightStyle === 'arrow' ? `高能事件: 箭头标注(>${highlightThreshold}J)` : `高能事件(>${highlightThreshold}J)`}
           </span>
         </div>
       )}
