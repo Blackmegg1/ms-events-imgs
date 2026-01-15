@@ -6,43 +6,29 @@ import { getPointList } from '@/services/point/PointController';
 
 // 计算传入的点位是否在两个曲面之间
 export default function isPointInSurfaceRegion(point, surface1Points, surface2Points) {
-    // 使用d3-delaunay进行三角剖分
-    const delaunay1 = Delaunay.from(surface1Points.map(p => [p.x, p.y]));
-    const delaunay2 = Delaunay.from(surface2Points.map(p => [p.x, p.y]));
-
-    const triangles1 = [];
-    const triangles2 = [];
-
-    // 获取三角剖分后的三角形数组
-    const trianglesIndices1 = delaunay1.triangles;
-    const trianglesIndices2 = delaunay2.triangles;
-
-    for (let i = 0; i < trianglesIndices1.length; i += 3) {
-        triangles1.push([
-            surface1Points[trianglesIndices1[i]],
-            surface1Points[trianglesIndices1[i + 1]],
-            surface1Points[trianglesIndices1[i + 2]]
-        ]);
-
-        triangles2.push([
-            surface2Points[trianglesIndices2[i]],
-            surface2Points[trianglesIndices2[i + 1]],
-            surface2Points[trianglesIndices2[i + 2]]
-        ]);
-    }
+    // 使用d3-delaunay进行单次三角剖分（假设 surface1 和 surface2 的 X, Y 坐标集是一致的）
+    const delaunay = Delaunay.from(surface1Points.map(p => [p.x, p.y]));
+    const trianglesIndices = delaunay.triangles;
 
     // 判断点是否在两个曲面之间
-    for (let i = 0; i < triangles1.length; i++) {
-        const triangle1 = triangles1[i];
-        const triangle2 = triangles2[i];
+    for (let i = 0; i < trianglesIndices.length; i += 3) {
+        const i0 = trianglesIndices[i];
+        const i1 = trianglesIndices[i + 1];
+        const i2 = trianglesIndices[i + 2];
+
+        const triangle1 = [surface1Points[i0], surface1Points[i1], surface1Points[i2]];
+        const triangle2 = [surface2Points[i0], surface2Points[i1], surface2Points[i2]];
 
         // 判断 (x, y) 是否在三角形投影内
         if (pointInTriangle(point.x, point.y, triangle1)) {
             const z1 = interpolateZ(point.x, point.y, triangle1);
             const z2 = interpolateZ(point.x, point.y, triangle2);
 
-            // 判断 z 坐标是否在两个曲面之间
-            if (point.z >= z1 && point.z <= z2) {
+            // 增强健壮性：判断 z 坐标是否在两个曲面之间（不假设 z1 < z2）
+            const minZ = Math.min(z1, z2);
+            const maxZ = Math.max(z1, z2);
+
+            if (point.z >= minZ && point.z <= maxZ) {
                 return true;
             }
         }
@@ -53,11 +39,19 @@ export default function isPointInSurfaceRegion(point, surface1Points, surface2Po
 
 function pointInTriangle(px, py, triangle) {
     const [a, b, c] = triangle;
-    return (
-        area(px, py, b.x, b.y, c.x, c.y) +
-        area(a.x, a.y, px, py, c.x, c.y) +
-        area(a.x, a.y, b.x, b.y, px, py)
-    ) === area(a.x, a.y, b.x, b.y, c.x, c.y);
+
+    // 使用叉积法判断点是否在三角形内，比面积法更稳健且避开浮点加法精度问题
+    // 计算向量: (b-a)x(p-a), (c-b)x(p-b), (a-c)x(p-c)
+    // 如果所有积符号相同，则点在三角形内
+    const sign1 = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
+    const sign2 = (c.x - b.x) * (py - b.y) - (c.y - b.y) * (px - b.x);
+    const sign3 = (a.x - c.x) * (py - c.y) - (a.y - c.y) * (px - c.x);
+
+    const has_neg = (sign1 < 0) || (sign2 < 0) || (sign3 < 0);
+    const has_pos = (sign1 > 0) || (sign2 > 0) || (sign3 > 0);
+
+    // 考虑在线上的情况：! (has_neg && has_pos)
+    return !(has_neg && has_pos);
 }
 
 function area(x1, y1, x2, y2, x3, y3) {
@@ -68,6 +62,12 @@ function interpolateZ(x, y, triangle) {
     const [a, b, c] = triangle;
 
     const detT = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
+
+    // 如果三角形退化（共线），直接返回其中一个点的 Z 或平均 Z
+    if (Math.abs(detT) < 1e-10) {
+        return (a.z + b.z + c.z) / 3.0;
+    }
+
     const l1 = ((b.y - c.y) * (x - c.x) + (c.x - b.x) * (y - c.y)) / detT;
     const l2 = ((c.y - a.y) * (x - c.x) + (a.x - c.x) * (y - c.y)) / detT;
     const l3 = 1.0 - l1 - l2;
