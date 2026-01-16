@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import CreateForm from './components/CreateForm';
 import UpdateForm from './components/UpdataForm';
 
-const { getProjectDist } = projectServices.ProjectController;
+const { getProjectDist, getActiveProject } = projectServices.ProjectController;
 const { getImgList, deleteImg } = imgmagServices.ImgmagController;
 
 const handlePreviewImage = (base64Img: string) => {
@@ -31,6 +31,7 @@ const handlePreviewImage = (base64Img: string) => {
 
 const ImgMag: React.FC = () => {
   const [projectDist, setProjectDist] = useState({});
+  const [activeProjectDist, setActiveProjectDist] = useState({});
   const [createModalVisible, handleCreateVisible] = useState(false);
   const [updateModalVisible, handleUpdateVisible] = useState(false);
   const [currentData, setCurrentData] = useState({});
@@ -60,6 +61,12 @@ const ImgMag: React.FC = () => {
         ],
       },
       valueEnum: projectDist,
+      fieldProps: {
+        options: Object.keys(activeProjectDist).map((key) => ({
+          label: activeProjectDist[key].text,
+          value: Number(key),
+        })),
+      },
     },
     {
       title: '底图名称',
@@ -175,7 +182,6 @@ const ImgMag: React.FC = () => {
   useEffect(() => {
     async function fetchDist() {
       const response = await getProjectDist();
-      console.log(response);
       const distObj: any = {};
       response.forEach((project: { projectName: string; id: number }) => {
         distObj[project.id] = {
@@ -186,7 +192,20 @@ const ImgMag: React.FC = () => {
       setProjectDist(distObj);
       return;
     }
+    async function fetchActiveDist() {
+      const response = await getActiveProject();
+      const distObj: any = {};
+      response.forEach((project: { projectName: string; id: number }) => {
+        distObj[project.id] = {
+          text: project.projectName,
+          status: project.projectName,
+        };
+      });
+      setActiveProjectDist(distObj);
+      return;
+    }
     fetchDist();
+    fetchActiveDist();
   }, []);
 
   return (
@@ -236,7 +255,7 @@ const ImgMag: React.FC = () => {
           }
         }}
         modalVisible={createModalVisible}
-        projectDist={projectDist}
+        projectDist={activeProjectDist}
       />
       <UpdateForm
         onCancel={() => {

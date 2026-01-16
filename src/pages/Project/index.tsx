@@ -126,14 +126,28 @@ const HomePage: React.FC = () => {
             </Button>,
           ]}
           request={async (params) => {
-            const { list, success, total } = await getProjectList({
-              ...params,
-              // @ts-ignore
+            // Fetch all projects to perform global sorting
+            const { list, success } = await getProjectList({
+              pageSize: 9999,
+              current: 1,
             });
+
+            const sortedList = (list || []).sort((a: any, b: any) => {
+              if (a.is_finished !== b.is_finished) {
+                return (a.is_finished || 0) - (b.is_finished || 0);
+              }
+              return dayjs(b.initTime).valueOf() - dayjs(a.initTime).valueOf();
+            });
+
+            const pageSize = params.pageSize || 10;
+            const current = params.current || 1;
+            const startIndex = (current - 1) * pageSize;
+            const paginatedData = sortedList.slice(startIndex, startIndex + pageSize);
+
             return {
-              data: list || [],
+              data: paginatedData,
               success,
-              total,
+              total: sortedList.length,
             };
           }}
         />

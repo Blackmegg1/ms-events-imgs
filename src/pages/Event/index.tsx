@@ -107,6 +107,12 @@ const Event: React.FC = () => {
         ],
       },
       valueEnum: projectDist,
+      fieldProps: {
+        options: Object.keys(activeProjectDist).map((key) => ({
+          label: activeProjectDist[key].text,
+          value: Number(key),
+        })),
+      },
     },
     {
       title: 'X坐标',
