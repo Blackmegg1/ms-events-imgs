@@ -20,12 +20,6 @@ const UserList: React.FC = () => {
 
     const columns: ProColumns<any>[] = [
         {
-            title: 'ID',
-            dataIndex: 'id',
-            hideInSearch: true,
-            width: 60,
-        },
-        {
             title: '用户名',
             dataIndex: 'username',
             copyable: true,

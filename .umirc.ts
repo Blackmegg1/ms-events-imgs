@@ -25,7 +25,7 @@ export default defineConfig({
       path: '/home',
       component: './Home',
     },
-        {
+    {
       name: '用户管理',
       path: '/user',
       component: './User',
@@ -89,14 +89,20 @@ export default defineConfig({
       ],
     },
     {
-      name: '电法数据合并',
-      path: '/surlineConcat',
-      component: './SurlineConcat',
-    },
-    {
-      name: '随掘三维偏移图',
-      path: '/tunnelModel',
-      component: './TunnelModel',
+      name: '其他工具',
+      path: '/tools',
+      routes: [
+        {
+          name: '电法数据合并',
+          path: '/tools/surlineConcat',
+          component: './SurlineConcat',
+        },
+        {
+          name: '随掘三维偏移图',
+          path: '/tools/tunnelModel',
+          component: './TunnelModel',
+        },
+      ],
     },
 
   ],

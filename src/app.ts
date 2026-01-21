@@ -3,6 +3,8 @@ import { RequestConfig, history, useModel } from '@umijs/max';
 import React, { useState } from 'react';
 import logo from '@/favicon.ico';
 import UserProfileModal from '@/components/HeaderContent/UserProfileModal';
+import TabsLayout from '@/components/TabsLayout';
+import { AliveScope } from 'react-activation';
 
 import { queryCurrentUser } from '@/services/auth';
 
@@ -88,11 +90,22 @@ export const layout = ({ initialState, setInitialState }: any) => {
     menu: {
       locale: false,
     },
+    breadcrumbRender: false,
+    onPageChange: () => {
+      const { location } = history;
+      // 如果没有登录，重定向到 login
+      if (!initialState?.currentUser && location.pathname !== '/login') {
+        history.push('/login');
+      }
+    },
     // 将用户信息移至右上角
     avatarProps: {
-      title: currentUser?.real_name || currentUser?.username || '未知用户',
+      title: currentUser?.real_name || currentUser?.username || '请登录',
       size: 'small',
       render: () => React.createElement(UserAvatarRender, { currentUser, setInitialState }),
+    },
+    childrenRender: (children: any) => {
+      return children;
     },
   };
 };

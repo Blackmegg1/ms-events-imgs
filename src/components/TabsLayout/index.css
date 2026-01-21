@@ -1,0 +1,45 @@
+.tabs-layout-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.tabs-header {
+    background: #fff;
+    border-bottom: 1px solid #f0f0f0;
+    z-index: 10;
+}
+
+.tabs-content {
+    flex: 1;
+    overflow: auto;
+    padding: 16px;
+    background: #f5f5f5;
+}
+
+/* 隐藏 Tabs 自带的空白 */
+.tabs-header .ant-tabs-nav {
+    margin-bottom: 0 !important;
+}
+
+.tabs-header .ant-tabs-nav::before {
+    display: none;
+}
+
+/* 隐藏全局面包屑和页面标题区域 (PageHeader) */
+.ant-breadcrumb,
+.ant-pro-page-container-header,
+.ant-page-header,
+.ant-pro-page-header {
+    display: none !important;
+}
+
+/* 调整 ProTable 等容器的间距，使其紧贴页签 */
+.ant-pro-page-container-children-content {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+.ant-pro-page-container {
+    padding-top: 0 !important;
+}
