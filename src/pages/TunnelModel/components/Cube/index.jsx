@@ -264,13 +264,13 @@ const Cube = () => {
     function addAxisNumber(start = 0, length, divide, axis = 'x', unit = '(m)') {
       const meshes = [];
       const step = length / divide;
-    
+
       // 根据轴调整文字位置和朝向
       for (let i = 0; i <= divide; i++) {
         const pos = i * step;
         const value = (start + pos).toString();
         let position;
-    
+
         // 根据轴设置文字位置
         switch (axis.toLowerCase()) {
           case 'x':
@@ -285,11 +285,11 @@ const Cube = () => {
           default:
             throw new Error("Axis must be 'x', 'y', or 'z'");
         }
-    
+
         // 添加刻度文字
         meshes.push(addText(value, position, 0x000000, camera));
       }
-    
+
       // 添加单位标签
       let unitPosition;
       switch (axis.toLowerCase()) {
@@ -304,7 +304,7 @@ const Cube = () => {
           break;
       }
       meshes.push(addText(unit, unitPosition, 0x000000, camera));
-    
+
       return meshes;
     }
 
@@ -385,7 +385,7 @@ const Cube = () => {
       </div>
       <div
         ref={containerRef}
-        style={{ width: '98%', height: 'calc(100vh - 160px)' }}
+        style={{ width: '100%', height: 'calc(100vh - 210px)', background: '#fff' }}
       ></div>
       <Drawer
         title="图像设置"

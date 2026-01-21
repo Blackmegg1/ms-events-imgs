@@ -43,7 +43,7 @@ const updates: UpdateItem[] = [
 
 const Guide: React.FC<Props> = ({ name }) => {
   return (
-    <Layout className={styles.guideFullscreen}>
+    <div className={styles.container}>
       <div className={styles.cardContent}>
         <Title level={2}>
           欢迎使用 <span style={{ color: '#1677ff' }}>{name}</span>
@@ -61,7 +61,7 @@ const Guide: React.FC<Props> = ({ name }) => {
           ))}
         </Timeline>
       </div>
-    </Layout>
+    </div>
   );
 };
 

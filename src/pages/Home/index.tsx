@@ -7,9 +7,7 @@ const HomePage: React.FC = () => {
   const { name } = useModel('global');
   return (
     <PageContainer ghost>
-      <div className={styles.container}>
-        <Guide name={name} />
-      </div>
+      <Guide name={name} />
     </PageContainer>
   );
 };

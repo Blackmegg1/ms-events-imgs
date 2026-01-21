@@ -15,9 +15,21 @@ export default defineConfig({
       redirect: '/home',
     },
     {
+      name: '登录',
+      path: '/login',
+      component: './Login',
+      layout: false,
+    },
+    {
       name: '首页',
       path: '/home',
       component: './Home',
+    },
+        {
+      name: '用户管理',
+      path: '/user',
+      component: './User',
+      access: 'isAdmin',
     },
     {
       name: '项目管理',
@@ -86,12 +98,12 @@ export default defineConfig({
       path: '/tunnelModel',
       component: './TunnelModel',
     },
+
   ],
   npmClient: 'pnpm',
   proxy: {
     '/api': {
-      target: 'http://192.168.74.19:3000/',
-      // target: 'http://localhost:3000/',
+      target: 'http://localhost:3001/',
       changeOrigin: true,
       pathRewrite: { '^/api': '' },
     },

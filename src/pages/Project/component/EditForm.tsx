@@ -1,5 +1,7 @@
 import services from '@/services/project';
+import { getUsers } from '@/services/user';
 import { QuestionCircleOutlined } from '@ant-design/icons';
+import { useModel } from '@umijs/max';
 import {
   Button,
   DatePicker,
@@ -27,6 +29,7 @@ interface EditFormProps {
     ltp_map: string;
     enable_time_format?: number;
     time_format?: string | null;
+    ownerIds?: number[];
   };
   onCancel: () => void;
 }
@@ -39,6 +42,19 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
   const [loading, setLoading] = useState(false);
   const [useLTP, setUseLTP] = useState(0);
   const [useTimeFormat, setUseTimeFormat] = useState(0);
+  const { initialState } = useModel('@@initialState');
+  const isAdmin = initialState?.currentUser?.role === 'admin';
+  const [userList, setUserList] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (modalVisible && isAdmin) {
+      getUsers().then(res => {
+        if (res.success) {
+          setUserList(res.data);
+        }
+      });
+    }
+  }, [modalVisible, isAdmin]);
 
   const modalFooter = [
     <Button key="back" onClick={onCancel}>
@@ -118,6 +134,7 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
         ltp_map,
         enable_time_format = 0,
         time_format = 'YYYY-MM-DD HH:mm:ss.SSS',
+        ownerIds = [],
       } = currentRecord;
 
       form.setFieldsValue({
@@ -128,6 +145,7 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
         by_ltp,
         enable_time_format,
         time_format,
+        ownerIds,
       });
       setUseLTP(by_ltp);
       setUseTimeFormat(enable_time_format);
@@ -163,6 +181,20 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
         >
           <Input />
         </Form.Item>
+
+        {isAdmin && (
+          <Form.Item
+            label="负责人"
+            name="ownerIds"
+            rules={[{ required: true, message: '请选择负责人' }]}
+          >
+            <Select
+              mode="multiple"
+              placeholder="请选择项目负责人"
+              options={userList.map(u => ({ label: u.real_name || u.username, value: u.id }))}
+            />
+          </Form.Item>
+        )}
 
         <Form.Item
           label="事件点尺寸"
@@ -271,7 +303,7 @@ const EditForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
             <Input placeholder="YYYY-MM-DD HH:mm:ss.SSS" />
           </Form.Item>
         )}
-        
+
         {/* 项目状态放在最后 */}
         <Form.Item
           label={

@@ -1,7 +1,9 @@
 import services from '@/services/project';
+import { getUsers } from '@/services/user';
+import { useModel } from '@umijs/max';
 import { Button, DatePicker, Form, Input, Modal, Select, Space, Switch, message } from 'antd';
 import dayjs from 'dayjs';
-import React, { PropsWithChildren, useState } from 'react';
+import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 const { addProject } = services.ProjectController;
 
@@ -16,6 +18,19 @@ const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
   const [loading, setLoading] = useState(false);
   const [useLTP, setUseLTP] = useState(0); // 0=不启用 1=启用
   const [useTimeFormat, setUseTimeFormat] = useState(0); // 0=不启用 1=启用
+  const { initialState } = useModel('@@initialState');
+  const isAdmin = initialState?.currentUser?.role === 'admin';
+  const [userList, setUserList] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (modalVisible && isAdmin) {
+      getUsers().then(res => {
+        if (res.success) {
+          setUserList(res.data);
+        }
+      });
+    }
+  }, [modalVisible, isAdmin]);
 
   const modalFooter = [
     <Button key="back" onClick={onCancel}>
@@ -94,6 +109,7 @@ const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
           enable_time_format: 0,
           time_format: 'YYYY-MM-DD HH:mm:ss.SSS',
           ltp_map_points: [{}, {}], // 固定两组坐标
+          ownerIds: [initialState?.currentUser?.id], // 默认当前用户
         }}
       >
         <Form.Item
@@ -103,6 +119,20 @@ const CreateForm: React.FC<PropsWithChildren<CreateFormProps>> = (props) => {
         >
           <Input />
         </Form.Item>
+
+        {isAdmin && (
+          <Form.Item
+            label="负责人"
+            name="ownerIds"
+            rules={[{ required: true, message: '请选择负责人' }]}
+          >
+            <Select
+              mode="multiple"
+              placeholder="请选择项目负责人"
+              options={userList.map(u => ({ label: u.real_name || u.username, value: u.id }))}
+            />
+          </Form.Item>
+        )}
 
         <Form.Item
           label="事件点尺寸"

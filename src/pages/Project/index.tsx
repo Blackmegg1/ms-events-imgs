@@ -44,6 +44,13 @@ const HomePage: React.FC = () => {
       },
     },
     {
+      title: '负责人',
+      dataIndex: 'ownerNames',
+      render: (_: any, record: any) => {
+        return record.ownerNames || '-';
+      },
+    },
+    {
       title: '事件点尺寸',
       dataIndex: 'by_mag',
       render: (_: any, record: any) => {
