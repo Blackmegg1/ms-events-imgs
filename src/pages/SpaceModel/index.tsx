@@ -1,10 +1,11 @@
 import { deleteModel, getModelList } from '@/services/model/ModelController';
 import { getProjectDist } from '@/services/project/ProjectController';
-import { PageContainer, ProTable } from '@ant-design/pro-components';
+import { ActionType, PageContainer, ProTable } from '@ant-design/pro-components';
 import { Button, Popconfirm, Space } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import CompassModal from './component/CompassModal';
 import CreateForm from './component/CreateForm';
+import CsvUploadModal from './component/CsvUploadModal';
 import LayerManage from './component/LayerManage';
 import PointManage from './component/PointManage';
 import UpdateForm from './component/UpdateForm';
@@ -18,8 +19,9 @@ const SpaceModel: React.FC = () => {
   const [pointDrawerVisible, handlePointDrawerVisible] = useState(false);
   const [layerDrawerVisible, handleLayerDrawerVisible] = useState(false);
   const [compassModalVisible, handleCompassModalVisible] = useState(false);
+  const [csvModalVisible, handleCsvModalVisible] = useState(false);
 
-  const tableRef = useRef();
+  const tableRef = useRef<ActionType>();
   const formRef = useRef();
 
   useEffect(() => {
@@ -111,13 +113,22 @@ const SpaceModel: React.FC = () => {
             >
               指北针设置
             </Button>
+            <Button
+              type="link"
+              onClick={() => {
+                setCurrentData(record);
+                handleCsvModalVisible(true);
+              }}
+            >
+              上传CSV数据
+            </Button>
             <Popconfirm
               title="确认删除该模型？"
               description="此操作不可逆"
               onConfirm={async () => {
                 const res = await deleteModel(record.model_id);
                 console.log(res);
-                tableRef.current.reload();
+                tableRef.current?.reload();
               }}
               okText="是"
               cancelText="否"
@@ -166,7 +177,7 @@ const SpaceModel: React.FC = () => {
       <CreateForm
         onCancel={() => {
           handleCreateVisible(false);
-          tableRef.current.reload();
+          tableRef.current?.reload();
         }}
         modalVisible={createModalVisible}
         projectArr={projectArr}
@@ -174,7 +185,7 @@ const SpaceModel: React.FC = () => {
       <UpdateForm
         onCancel={() => {
           handleUpdateVisible(false);
-          tableRef.current.reload();
+          tableRef.current?.reload();
         }}
         currentRecord={currentData}
         modalVisible={updateModalVisible}
@@ -184,7 +195,7 @@ const SpaceModel: React.FC = () => {
         drawerVisible={pointDrawerVisible}
         onCancel={() => {
           handlePointDrawerVisible(false);
-          tableRef.current.reload();
+          tableRef.current?.reload();
         }}
         currentRecord={currentData}
       />
@@ -192,7 +203,7 @@ const SpaceModel: React.FC = () => {
         drawerVisible={layerDrawerVisible}
         onCancel={() => {
           handleLayerDrawerVisible(false);
-          tableRef.current.reload();
+          tableRef.current?.reload();
         }}
         currentRecord={currentData}
       />
@@ -201,7 +212,15 @@ const SpaceModel: React.FC = () => {
         modalVisible={compassModalVisible}
         onCancel={() => {
           handleCompassModalVisible(false);
-          tableRef.current.reload();
+          tableRef.current?.reload();
+        }}
+      />
+      <CsvUploadModal
+        currentRecord={currentData}
+        modalVisible={csvModalVisible}
+        onCancel={() => {
+          handleCsvModalVisible(false);
+          tableRef.current?.reload();
         }}
       />
     </PageContainer>

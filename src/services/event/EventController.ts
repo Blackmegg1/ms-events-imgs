@@ -3,6 +3,9 @@ import { request } from '@umijs/max';
 export async function getEventList(params: {
   current?: number;
   pageSize?: number;
+  timeBegin?: string | null;
+  timeEnd?: string | null;
+  project_id?: number | null;
 }) {
   return request('/api/event/list', {
     method: 'get',

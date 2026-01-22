@@ -33,12 +33,13 @@ interface SceneProps {
   }[];
   events: Events | [];
   layers: Layers | [];
-  eventMode: Number;
+  eventMode: number;
   compass: any;
+  csvData?: any[];
 }
 
 const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
-  const { points, events, layers, eventMode, compass } = props;
+  const { points, events, layers, eventMode, compass, csvData } = props;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -48,7 +49,11 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
   let animationFrameId: number;
 
   const sceneData = useMemo(() => {
-    if (points.length < 3) return null;
+    const calcPoints = csvData && csvData.length > 0
+      ? csvData.map(p => ({ point_x: p.x, point_y: p.y, point_z: p.z }))
+      : points;
+
+    if (calcPoints.length < 3) return null;
 
     let maxX = -Infinity,
       maxY = -Infinity,
@@ -57,7 +62,7 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
       minY = Infinity,
       minZ = Infinity;
 
-    points.forEach((point) => {
+    calcPoints.forEach((point) => {
       maxX = Math.max(maxX, point.point_x);
       maxY = Math.max(maxY, point.point_y);
       maxZ = Math.max(maxZ, point.point_z);
@@ -84,7 +89,7 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
       centerZ,
       target,
     };
-  }, [points]);
+  }, [points, csvData]);
 
   function clearScene(scene: THREE.Scene) {
     // 创建一个临时数组存储需要删除的对象
@@ -188,9 +193,11 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
     controls.update();
     controlRef.current = controls;
 
-    const vectorPoints = points.map(
-      (point) => new THREE.Vector3(point.point_x, point.point_y, point.point_z),
-    );
+    const vectorPoints = (csvData && csvData.length > 0)
+      ? csvData.map(p => new THREE.Vector3(p.x, p.y, p.z))
+      : points.map(
+        (point) => new THREE.Vector3(point.point_x, point.point_y, point.point_z),
+      );
 
     // createPoints(vectorPoints, sceneRef.current);
 
@@ -218,7 +225,7 @@ const Scene: React.FC<PropsWithChildren<SceneProps>> = (props) => {
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [points, layers, events, eventMode]);
+  }, [points, layers, events, eventMode, csvData]);
 
   return (
     <>

@@ -25,7 +25,6 @@ const updates: UpdateItem[] = [
   {
     date: '2025-09-11',
     title: '事件模拟与导出时间优化',
-    icon: <ScheduleOutlined />,
     description:
       '新增数据模拟功能；事件批量导出支持按项目设置自定义时间格式；关闭大地坐标不清空参考点。',
   },

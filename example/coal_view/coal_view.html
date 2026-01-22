@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>煤层可视化</title>
+    <style>
+        body {
+            margin: 0;
+            background: #f0f2f5;
+            font-family: sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 20px;
+            background: white;
+            border-bottom: 1px solid #ddd;
+        }
+
+        /* 容器样式：你可以随意控制组件的大小 */
+        #view-container {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "../../World/three/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module" src="./CoalView.js"></script>
+</head>
+
+<body>
+
+    <header>
+        <h2>工程地质模型：大强煤层</h2>
+    </header>
+
+    <div id="view-container">
+        <coal-view style="display: block; width: 100%; height: 100%;"></coal-view>
+    </div>
+
+</body>
+
+</html>

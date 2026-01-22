@@ -15,6 +15,7 @@ import {
   message,
 } from 'antd';
 import dayjs from 'dayjs';
+import Papa from 'papaparse';
 import { useEffect, useState } from 'react';
 
 import Scene from './components/Scene';
@@ -48,7 +49,7 @@ const ModelShow = () => {
   const [messageApi, contextHolder] = message.useMessage();
 
   const [projectDist, setProjectDist] = useState([]);
-  const [projectArr, setProjectArr] = useState<Points | []>([]);
+  const [projectArr, setProjectArr] = useState<any[]>([]);
   const [modelArr, setModelArr] = useState([]);
   const [points, setPoints] = useState([]);
   const [events, setEvents] = useState<Events | []>([]);
@@ -56,6 +57,8 @@ const ModelShow = () => {
   const [eventMode, setEventMode] = useState(0);
   const [layers, setLayers] = useState<Layers | []>([]);
   const [compass, setCompass] = useState(null);
+  const [fullModelList, setFullModelList] = useState<any[]>([]);
+  const [csvData, setCsvData] = useState<any[]>([]);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -89,7 +92,7 @@ const ModelShow = () => {
       }}
     >
       <Card bodyStyle={{ padding: '16px' }}>
-        <Form layout="Horizontal" form={form}>
+        <Form layout="horizontal" form={form}>
           <Row>
             <Space>
               <Form.Item label="成图项目" name="project_id">
@@ -101,6 +104,7 @@ const ModelShow = () => {
                     form.setFieldsValue({ model_id: null });
                     const response = await getModelList({ project_id: value });
                     const modelList = response.list;
+                    setFullModelList(modelList);
                     const distArr: any = [];
                     modelList.forEach(
                       (model: { model_id: number; model_name: string }) => {
@@ -156,8 +160,42 @@ const ModelShow = () => {
                       const { list: points } = await getPointList({
                         model_id: params.model_id,
                       });
-                      if (points.length < 3) {
-                        messageApi.error('模型的基准点位少于3个！');
+
+                      const selectedModel = fullModelList.find(m => m.model_id === params.model_id);
+                      if (selectedModel?.csv_path) {
+                        try {
+                          const csvRes = await fetch(selectedModel.csv_path);
+                          const csvText = await csvRes.text();
+                          Papa.parse(csvText, {
+                            header: true,
+                            dynamicTyping: true,
+                            skipEmptyLines: true,
+                            complete: (results: Papa.ParseResult<any>) => {
+                              const fields = results.meta.fields || [];
+                              const findField = (n: string) => fields.find(f => f.trim().toUpperCase() === n);
+                              const cX = findField('X');
+                              const cY = findField('Y');
+                              const cZ = findField('Z');
+
+                              if (cX && cY && cZ) {
+                                const parsedData = results.data.map((d: any) => ({
+                                  x: d[cX],
+                                  y: d[cY],
+                                  z: d[cZ]
+                                })).filter((d: any) => typeof d.x === 'number' && typeof d.y === 'number' && typeof d.z === 'number');
+                                setCsvData(parsedData);
+                              }
+                            }
+                          });
+                        } catch (e) {
+                          console.error('Failed to load CSV:', e);
+                        }
+                      } else {
+                        setCsvData([]);
+                      }
+
+                      if (points.length < 3 && !selectedModel?.csv_path) {
+                        messageApi.error('模型的基准点位少于3个且未上传CSV数据！');
                         return;
                       }
                       setPoints(points);
@@ -185,14 +223,15 @@ const ModelShow = () => {
                         setLayers(layers);
                       }
 
-                      const { compass: compass } = await getCompass(
+                      const responseCompass: any = await getCompass(
                         params.model_id,
                       );
-                      if (compass[0].show_compass) {
+                      const compassData = responseCompass.compass;
+                      if (compassData[0]?.show_compass) {
                         setCompass({
-                          start: compass[0].compass_start.split(','),
-                          end: compass[0].compass_end.split(','),
-                        });
+                          start: compassData[0].compass_start.split(','),
+                          end: compassData[0].compass_end.split(','),
+                        } as any);
                       }
                     }}
                   >
@@ -204,7 +243,7 @@ const ModelShow = () => {
           </Row>
         </Form>
       </Card>
-      {points.length > 0 ? (
+      {points.length > 0 || csvData.length > 0 ? (
         <Card>
           <Scene
             points={points}
@@ -212,6 +251,7 @@ const ModelShow = () => {
             layers={layers}
             eventMode={eventMode}
             compass={compass}
+            csvData={csvData}
           />
         </Card>
       ) : null}

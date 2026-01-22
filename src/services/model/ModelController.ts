@@ -56,3 +56,15 @@ export function getCompass(model_id: number) {
     method: 'get',
   });
 }
+
+export function uploadModelCsv(model_id: number, file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return request(`/api/model/upload/${model_id}`, {
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+}
