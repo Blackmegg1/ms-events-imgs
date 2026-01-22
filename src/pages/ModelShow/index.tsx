@@ -161,7 +161,9 @@ const ModelShow = () => {
                         model_id: params.model_id,
                       });
 
-                      const selectedModel = fullModelList.find(m => m.model_id === params.model_id);
+                      const selectedModel = fullModelList.find(
+                        (m) => m.model_id === params.model_id,
+                      );
                       if (selectedModel?.csv_path) {
                         try {
                           const csvRes = await fetch(selectedModel.csv_path);
@@ -172,20 +174,30 @@ const ModelShow = () => {
                             skipEmptyLines: true,
                             complete: (results: Papa.ParseResult<any>) => {
                               const fields = results.meta.fields || [];
-                              const findField = (n: string) => fields.find(f => f.trim().toUpperCase() === n);
+                              const findField = (n: string) =>
+                                fields.find(
+                                  (f) => f.trim().toUpperCase() === n,
+                                );
                               const cX = findField('X');
                               const cY = findField('Y');
                               const cZ = findField('Z');
 
                               if (cX && cY && cZ) {
-                                const parsedData = results.data.map((d: any) => ({
-                                  x: d[cX],
-                                  y: d[cY],
-                                  z: d[cZ]
-                                })).filter((d: any) => typeof d.x === 'number' && typeof d.y === 'number' && typeof d.z === 'number');
+                                const parsedData = results.data
+                                  .map((d: any) => ({
+                                    x: d[cX],
+                                    y: d[cY],
+                                    z: d[cZ],
+                                  }))
+                                  .filter(
+                                    (d: any) =>
+                                      typeof d.x === 'number' &&
+                                      typeof d.y === 'number' &&
+                                      typeof d.z === 'number',
+                                  );
                                 setCsvData(parsedData);
                               }
-                            }
+                            },
                           });
                         } catch (e) {
                           console.error('Failed to load CSV:', e);
@@ -195,7 +207,9 @@ const ModelShow = () => {
                       }
 
                       if (points.length < 3 && !selectedModel?.csv_path) {
-                        messageApi.error('模型的基准点位少于3个且未上传CSV数据！');
+                        messageApi.error(
+                          '模型的基准点位少于3个且未上传CSV数据！',
+                        );
                         return;
                       }
                       setPoints(points);
@@ -245,14 +259,16 @@ const ModelShow = () => {
       </Card>
       {points.length > 0 || csvData.length > 0 ? (
         <Card>
-          <Scene
-            points={points}
-            events={events}
-            layers={layers}
-            eventMode={eventMode}
-            compass={compass}
-            csvData={csvData}
-          />
+          <div style={{ width: '100%', height: '70vh', minHeight: '600px' }}>
+            <Scene
+              points={points}
+              events={events}
+              layers={layers}
+              eventMode={eventMode}
+              compass={compass}
+              csvData={csvData}
+            />
+          </div>
         </Card>
       ) : null}
       {contextHolder}

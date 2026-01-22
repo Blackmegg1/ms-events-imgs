@@ -958,3 +958,299 @@ export function createCompassArrow(start, end, options = {}) {
 
     return group;
 }
+
+export function makeTextSprite(str, size = 20, color = "#555", isBold = false) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const renderFontSize = 64; // 高分辨率渲染
+    const fontSpec = `${isBold ? "bold" : "500"} ${renderFontSize}px 'Segoe UI', Arial, sans-serif`;
+    
+    ctx.font = fontSpec;
+    const textWidth = ctx.measureText(str).width;
+    canvas.width = Math.ceil(textWidth + renderFontSize * 2);
+    canvas.height = Math.ceil(renderFontSize * 2.5);
+    
+    ctx.font = fontSpec;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(str, canvas.width / 2, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+
+    const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
+    const sprite = new THREE.Sprite(mat);
+    // 渲染顺序设为最高，防止被透明物体遮挡
+    sprite.renderOrder = 999; 
+    
+    const aspect = canvas.width / canvas.height;
+    const displayHeight = size * 1.8;
+    sprite.scale.set(displayHeight * aspect, displayHeight, 1);
+    
+    return sprite;
+}
+
+export function createBoxAxes(bounds, scene, center) {
+    const group = new THREE.Group();
+    group.name = "AxesGroup";
+
+    const pad = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY, bounds.maxZ - bounds.minZ) * 0.1;
+    
+    // 计算相对坐标（因为场景可能被中心化了）
+    const minX = bounds.minX - pad - center.x;
+    const maxX = bounds.maxX + pad - center.x;
+    const minY = bounds.minY - pad - center.y;
+    const maxY = bounds.maxY + pad - center.y;
+    const minZ = bounds.minZ - pad - center.z;
+    const maxZ = bounds.maxZ + pad - center.z;
+
+    // 1. 绘制边框
+    const frameMat = new THREE.LineBasicMaterial({ color: 0xbdc3c7, opacity: 0.8, transparent: true });
+    
+    // 底部框
+    const bottomGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(minX, minY, minZ), new THREE.Vector3(maxX, minY, minZ),
+        new THREE.Vector3(maxX, minY, minZ), new THREE.Vector3(maxX, maxY, minZ),
+        new THREE.Vector3(maxX, maxY, minZ), new THREE.Vector3(minX, maxY, minZ),
+        new THREE.Vector3(minX, maxY, minZ), new THREE.Vector3(minX, minY, minZ)
+    ]);
+    group.add(new THREE.LineSegments(bottomGeo, frameMat));
+
+    // 立柱和顶部
+    const wallGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(minX, maxY, minZ), new THREE.Vector3(minX, maxY, maxZ),
+        new THREE.Vector3(maxX, maxY, minZ), new THREE.Vector3(maxX, maxY, maxZ),
+        new THREE.Vector3(minX, minY, minZ), new THREE.Vector3(minX, minY, maxZ),
+        new THREE.Vector3(minX, maxY, maxZ), new THREE.Vector3(maxX, maxY, maxZ),
+        new THREE.Vector3(minX, minY, maxZ), new THREE.Vector3(minX, maxY, maxZ),
+    ]);
+    group.add(new THREE.LineSegments(wallGeo, frameMat));
+
+    // 2. 绘制网格线
+    const gridMat = new THREE.LineBasicMaterial({ color: 0xe0e0e0, opacity: 0.6, transparent: true });
+    
+    const createGrid = (uMin, uMax, vMin, vMax, fixed, axis) => {
+        const pts = [];
+        const steps = 6;
+        for (let i = 0; i <= steps; i++) {
+            const u = uMin + (uMax - uMin) * (i / steps);
+            const v = vMin + (vMax - vMin) * (i / steps);
+            if (axis === 'z') { 
+                pts.push(u, vMin, fixed, u, vMax, fixed); 
+                pts.push(uMin, v, fixed, uMax, v, fixed); 
+            } else if (axis === 'y') { 
+                pts.push(u, fixed, vMin, u, fixed, vMax); 
+                pts.push(uMin, fixed, v, uMax, fixed, v); 
+            } else { 
+                pts.push(fixed, u, vMin, fixed, u, vMax); 
+                pts.push(fixed, uMin, v, fixed, uMax, v); 
+            }
+        }
+        return new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)), gridMat);
+    };
+
+    group.add(createGrid(minX, maxX, minY, maxY, minZ, 'z')); // 底面网格
+    group.add(createGrid(minX, maxX, minZ, maxZ, maxY, 'y')); // 背面网格
+    group.add(createGrid(minY, maxY, minZ, maxZ, minX, 'x')); // 侧面网格
+
+    // 3. 刻度和标签
+    const createTicks = (axis, min, max, fixed1, fixed2) => {
+        const count = 5;
+        const step = (max - min) / count;
+        const tickMat = new THREE.LineBasicMaterial({ color: 0x7f8c8d });
+        const tickLen = (max - min) * 0.02;
+        const pts = [];
+
+        for (let i = 0; i <= count; i++) {
+            const val = min + i * step;
+            let pos = new THREE.Vector3();
+            let realVal = 0;
+
+            if (axis === 'x') {
+                pos.set(val, fixed1, fixed2); realVal = val + center.x;
+                pts.push(val, fixed1, fixed2, val, fixed1, fixed2 + tickLen);
+            } else if (axis === 'y') {
+                pos.set(fixed1, val, fixed2); realVal = val + center.y;
+                pts.push(fixed1, val, fixed2, fixed1 - tickLen, val, fixed2);
+            } else {
+                pos.set(fixed1, fixed2, val); realVal = val + center.z;
+                pts.push(fixed1, fixed2, val, fixed1 - tickLen, fixed2, val);
+            }
+
+            // 标签位置微调
+            const labelPos = pos.clone();
+            if (axis === 'x') { labelPos.y += 15; labelPos.z -= 10; }
+            if (axis === 'y') { labelPos.x -= 30; }
+            if (axis === 'z') { labelPos.x -= 30; labelPos.y += 10; }
+
+            const sprite = makeTextSprite(realVal.toFixed(0));
+            sprite.position.copy(labelPos);
+            group.add(sprite);
+        }
+        group.add(new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)), tickMat));
+    };
+
+    createTicks('x', minX, maxX, maxY, minZ);
+    createTicks('y', minY, maxY, minX, minZ);
+    createTicks('z', minZ, maxZ, minX, maxY);
+
+    // 4. 轴标题
+    const addTitle = (text, x, y, z, colorHex) => {
+        const sprite = makeTextSprite(text, 24, '#' + new THREE.Color(colorHex).getHexString(), true);
+        sprite.position.set(x, y, z);
+        group.add(sprite);
+    };
+
+    addTitle("X ", maxX + pad / 2, maxY, minZ, 0xe74c3c);
+    addTitle("Y ", minX, minY - pad / 2, minZ, 0x27ae60);
+    addTitle("Z ", minX, maxY, maxZ + pad / 2, 0x2980b9);
+
+    scene.add(group);
+}
+
+export function createSolidLayer(points, depth, color, center, opacity = 0.95) {
+    const points2D = points.map(p => [p.point_x, p.point_y]);
+    
+    // 使用 Delaunator/d3-delaunay 进行三角剖分
+    const delaunay = Delaunay.from(points2D);
+    const triangles = delaunay.triangles;
+    const numPoints = points.length;
+
+    const vertices = [];
+    const indices = [];
+
+    // 1. 生成顶点: 上表面 (index 0 ~ numPoints-1) 和 下表面 (index numPoints ~ 2*numPoints-1)
+    // 这里的 depth 是厚度，假设向下延伸
+    const topZOffset = 0; 
+    const bottomZOffset = -depth; 
+
+    // 添加上表面顶点
+    points.forEach(p => vertices.push(p.point_x - center.x, p.point_y - center.y, p.point_z - center.z + topZOffset));
+    // 添加下表面顶点
+    points.forEach(p => vertices.push(p.point_x - center.x, p.point_y - center.y, p.point_z - center.z + bottomZOffset));
+
+    // 2. 生成索引: 上表面三角形
+    for (let i = 0; i < triangles.length; i += 3) {
+        // 注意顺序以保证法线朝外
+        indices.push(triangles[i], triangles[i + 1], triangles[i + 2]);
+    }
+
+    // 3. 生成索引: 下表面三角形
+    for (let i = 0; i < triangles.length; i += 3) {
+        // 下表面点索引需要加上 numPoints，并且顺序相反以保证法线朝下/外
+        indices.push(triangles[i] + numPoints, triangles[i + 2] + numPoints, triangles[i + 1] + numPoints);
+    }
+
+    // 4. 生成索引: 侧面 (缝合上下层)
+    const halfedges = delaunay.halfedges;
+    for (let e = 0; e < halfedges.length; e++) {
+        // 如果没有对边，说明是凸包边缘
+        if (halfedges[e] === -1) {
+            const pStart = triangles[e];
+            const pEnd = triangles[(e % 3 === 2) ? e - 2 : e + 1];
+
+            // 构成侧面的两个三角形 (Quad split into 2 tris)
+            // Triangle 1
+            indices.push(pStart, pEnd, pEnd + numPoints);
+            // Triangle 2
+            indices.push(pStart, pEnd + numPoints, pStart + numPoints);
+        }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+
+    const mat = new THREE.MeshPhysicalMaterial({
+        color: color,
+        metalness: 0.1,
+        roughness: 0.8,
+        transparent: true,
+        opacity: opacity,
+        side: THREE.DoubleSide, // 虽然我们构建了封闭体，但DoubleSide可以防止相机进入内部时穿帮
+        flatShading: false
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+    return mesh;
+}
+
+export function createEventSpheres(events, scene, center) {
+    if (!events || events.length === 0) return null;
+
+    const count = events.length;
+    // 1. 降低分段数提升性能 (8, 6) 足以在大量点云中维持球体感
+    const geometry = new THREE.SphereGeometry(1, 8, 6); 
+
+    // 2. 使用 Basic 材质：性能开销最低，不受光照影响
+    // 如果需要受光，改用 MeshLambertMaterial
+    const material = new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0.8
+    });
+
+    // 3. 使用 InstancedMesh 提升性能
+    // 参数：几何体、材质、最大实例数量
+    const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
+    instancedMesh.name = "EventsGroup";
+
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
+
+    events.forEach((event, i) => {
+        if (event.magnitude > -999) {
+            // 设置位置
+            dummy.position.set(
+                event.loc_x - center.x,
+                event.loc_y - center.y,
+                event.loc_z - center.z
+            );
+
+            // 设置缩放 (半径)
+            const radius = 3 + (Math.abs(event.magnitude) * 3);
+            dummy.scale.set(radius, radius, radius);
+            
+            // 更新矩阵
+            dummy.updateMatrix();
+            instancedMesh.setMatrixAt(i, dummy.matrix);
+
+            // 设置颜色 (InstancedMesh 支持为每个实例设置颜色)
+            const eventColor = getColor(event.magnitude); // 假设你已定义 getColor
+            instancedMesh.setColorAt(i, color.set(eventColor));
+        }
+    });
+
+    // 4. 绑定原始数据到 userData 以便 Raycaster 拾取
+    // 注意：InstancedMesh 的拾取会返回 instanceId，需要通过该 ID 索引原始数据
+    instancedMesh.userData = {
+        type: 'events',
+        rawEvents: events 
+    };
+
+    scene.add(instancedMesh);
+    return instancedMesh;
+}
+
+export function createCompass(start, end, scene, center) {
+    const startVec = new THREE.Vector3(start[0] - center.x, start[1] - center.y, start[2] - center.z);
+    const endVec = new THREE.Vector3(end[0] - center.x, end[1] - center.y, end[2] - center.z);
+    
+    const dir = new THREE.Vector3().subVectors(endVec, startVec);
+    const len = dir.length();
+    
+    const arrowHelper = new THREE.ArrowHelper(dir.normalize(), startVec, len, 0xff0000, 10, 5);
+    
+    // 添加 "N" 标签
+    const labelPos = endVec.clone().add(dir.normalize().multiplyScalar(10));
+    const label = makeTextSprite("N", 32, "#ff0000", true);
+    label.position.copy(labelPos);
+    
+    const group = new THREE.Group();
+    group.add(arrowHelper);
+    group.add(label);
+    
+    scene.add(group);
+}
