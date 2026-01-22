@@ -325,7 +325,7 @@ const Event: React.FC = () => {
             type="default"
             onClick={() => setSimulateModalVisible(true)}
           >
-            数据模拟
+            数据测试
           </Button>,
           <Button key="3" type="default" onClick={() => handleBatchExport()}>
             批量导出

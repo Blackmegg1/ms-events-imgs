@@ -320,7 +320,7 @@ const Create = () => {
               </Form.Item>
             </Col>
             <Col span={3}>
-              <Form.Item name="isHighlightEnabled" label="高能事件标记开关" valuePropName="checked" initialValue={false}>
+              <Form.Item name="isHighlightEnabled" label="高能事件标记" valuePropName="checked" initialValue={false}>
                 <Switch checkedChildren="开" unCheckedChildren="关" />
               </Form.Item>
             </Col>

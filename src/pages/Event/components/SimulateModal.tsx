@@ -134,7 +134,7 @@ const SimulateModal: React.FC<PropsWithChildren<SimulateModalProps>> = ({
   return (
     <Modal
       open={modalVisible}
-      title="数据模拟"
+      title="数据测试"
       onCancel={handleCancel}
       onOk={handleOk}
       confirmLoading={submitting}
