@@ -16,6 +16,8 @@ import {
   Space,
   Table,
   message,
+  Switch,
+  Tag,
 } from 'antd';
 import React, { PropsWithChildren, useEffect, useState } from 'react';
 
@@ -129,6 +131,14 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
       ),
     },
     {
+      title: '类型',
+      dataIndex: 'layer_type',
+      key: 'layer_type',
+      render: (type: number) => (
+        type === 1 ? <Tag color="blue">分析分区</Tag> : <Tag color="default">地质层位</Tag>
+      ),
+    },
+    {
       title: '操作',
       key: 'action',
       render: (_, record) => (
@@ -137,7 +147,10 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
             type="link"
             onClick={() => {
               setCurrentLayer(record);
-              form.setFieldsValue(record);
+              form.setFieldsValue({
+                ...record,
+                layer_type: record.layer_type === 1,
+              });
               setEditModalVisible(true);
             }}
           >
@@ -192,6 +205,13 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
       >
         <InputNumber />
       </Form.Item>
+      <Form.Item
+        name="layer_type"
+        label="是否为分析分区"
+        valuePropName="checked"
+      >
+        <Switch checkedChildren="是" unCheckedChildren="否" />
+      </Form.Item>
     </Form>
   );
 
@@ -218,7 +238,11 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
         open={addModalVisible}
         onOk={async () => {
           await form.validateFields();
-          await handleAddLayer(form.getFieldsValue());
+          const values = form.getFieldsValue();
+          await handleAddLayer({
+            ...values,
+            layer_type: values.layer_type ? 1 : 0,
+          });
         }}
         onCancel={() => {
           setAddModalVisible(false);
@@ -232,7 +256,11 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
         open={editModalVisible}
         onOk={async () => {
           await form.validateFields();
-          await handleEditLayer(form.getFieldsValue());
+          const values = form.getFieldsValue();
+          await handleEditLayer({
+            ...values,
+            layer_type: values.layer_type ? 1 : 0,
+          });
         }}
         onCancel={() => {
           setEditModalVisible(false);

@@ -1,10 +1,9 @@
 import { addEvent, getEventList } from '@/services/event/EventController';
 import { getImgList } from '@/services/imgmag/ImgmagController';
-import {
-  getActiveProject,
-  getProjectDist,
-} from '@/services/project/ProjectController';
+import { getActiveProject, getProjectDist } from '@/services/project/ProjectController';
 import { computerEvent } from '@/utils/pointSurfaceRegion';
+import { getModelList } from '@/services/model/ModelController';
+import { getLayerList } from '@/services/layer/LayerController';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import {
   Button,
@@ -47,6 +46,7 @@ const Create = () => {
     enabled: false,
     style: 'red' as 'red' | 'arrow',
   });
+  const [analysisZones, setAnalysisZones] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchDist() {
@@ -174,7 +174,7 @@ const Create = () => {
   const getEvent = async (params: {
     timeRage: any[];
     project_id: any;
-    z_range: any[];
+    analysis_zone?: number[];
   }) => {
     const formattedTimeRange = params.timeRage?.map((date) =>
       dayjs(date).format('YYYY-MM-DD'),
@@ -186,35 +186,41 @@ const Create = () => {
       timeEnd: formattedTimeRange[1] || null,
       project_id: params.project_id || null,
     });
-    if (list) {
-      // 调用三维模型数据，对事件进行分层筛选
-      if (
-        Array.isArray(params.z_range) &&
-        params.z_range.length === 2 &&
-        typeof params.z_range[0] === 'number' &&
-        typeof params.z_range[1] === 'number' &&
-        !isNaN(params.z_range[0]) &&
-        !isNaN(params.z_range[1])
-      ) {
-        try {
-          const filterList = await computerEvent(
-            params.project_id,
-            list,
-            params.z_range[0],
-            params.z_range[1],
-          );
-          list = filterList;
-          console.log('执行了分层筛选');
-        } catch (error: any) {
-          message.warning(`未执行分层筛选：${error.message}`);
-        }
-      }
 
+    if (list && Array.isArray(params.analysis_zone) && params.analysis_zone.length > 0) {
+      try {
+        const allFilteredEvents = new Map();
+
+        for (const zoneId of params.analysis_zone) {
+          const zone = analysisZones.find(z => z.id === zoneId);
+          if (zone) {
+            const bottomZ = zone.layer_distance;
+            const topZ = zone.layer_distance + zone.layer_depth;
+            const filtered = await computerEvent(
+              params.project_id,
+              list,
+              bottomZ,
+              topZ,
+            );
+            filtered.forEach((ev: any) => {
+              const key = ev.event_key || ev.id || `${ev.loc_x}-${ev.loc_y}-${ev.loc_z}-${ev.time}`;
+              allFilteredEvents.set(key, ev);
+            });
+          }
+        }
+        list = Array.from(allFilteredEvents.values());
+        console.log(`执行了多分区筛选，共有 ${list.length} 个事件`);
+      } catch (error: any) {
+        message.warning(`筛选执行出错：${error.message}`);
+      }
+    }
+
+    if (list) {
       const updatedList = list.map((e) => {
         const color = getColor(+e.magnitude);
-        return { ...e, color }; // 添加color属性并返回新的对象
+        return { ...e, color };
       });
-      setEventList(updatedList); // 更新list
+      setEventList(updatedList);
 
       if (list.length) {
         message.success(`共有${list.length}个微震事件`);
@@ -286,17 +292,41 @@ const Create = () => {
           <Row gutter={16}>
             <Col span={6}>
               <Form.Item label="成图项目" name="project_id">
-                <Select options={projectArr} placeholder="请选择" />
+                <Select
+                  options={projectArr}
+                  placeholder="请选择"
+                  onChange={async (projectId) => {
+                    form.setFieldValue('analysis_zone', undefined);
+                    setAnalysisZones([]);
+                    try {
+                      const { list: models } = await getModelList({ project_id: projectId });
+                      if (models && models.length > 0) {
+                        const modelId = models[models.length - 1].model_id;
+                        const { list: layers } = await getLayerList({ model_id: modelId });
+                        // 筛选出分析分区 (layer_type === 1)
+                        const zones = layers.filter((l: any) => l.layer_type === 1);
+                        setAnalysisZones(zones);
+                      }
+                    } catch (e) {
+                      console.error('获取项目分区预设失败', e);
+                    }
+                  }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item label="分析分区预设（支持多选）" name="analysis_zone">
+                <Select
+                  mode="multiple"
+                  placeholder="选择分析分区"
+                  allowClear
+                  options={analysisZones.map(z => ({ label: z.layer_name, value: z.id }))}
+                />
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item label="事件时间段" name="timeRage">
                 <RangePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="层位切片" name="z_range">
-                <NumberRangeInput />
               </Form.Item>
             </Col>
             <Col span={8}>

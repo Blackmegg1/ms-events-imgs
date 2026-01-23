@@ -22,7 +22,7 @@ const BatchImport: React.FC<PropsWithChildren<BatchImportProps>> = ({
     console.log(values);
 
     const formData = new FormData();
-    formData.append('model_id', model_id);
+    formData.append('model_id', model_id.toString());
     formData.append('file', values.excel.file.originFileObj);
 
     batchAddPoint(formData)
@@ -42,6 +42,23 @@ const BatchImport: React.FC<PropsWithChildren<BatchImportProps>> = ({
     onCancel();
   };
 
+  const downloadSample = () => {
+    const header = "\uFEFF点位名称,X坐标,Y坐标,Z坐标\n";
+    const rows = [
+      "P1,100.5,200.3,300.1",
+      "P2,150.2,250.6,350.8",
+    ].join("\n");
+    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "批量导入点位示例.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <Modal
       open={modalVisible}
@@ -49,6 +66,12 @@ const BatchImport: React.FC<PropsWithChildren<BatchImportProps>> = ({
       onOk={handleImport}
       title="批量导入模型点位"
     >
+      <div style={{ marginBottom: 16 }}>
+        请按照示例文件格式上传数据：
+        <Button type="link" onClick={downloadSample} style={{ padding: 0 }}>
+          下载示例文件
+        </Button>
+      </div>
       <Form form={form} layout="horizontal">
         <Form.Item name="excel" label="CSV文件" required>
           <Upload>

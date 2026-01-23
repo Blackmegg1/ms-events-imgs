@@ -28,14 +28,14 @@ interface Points {
   point_y: number;
   point_z: number;
 }
-[];
 
 interface Events {
   loc_x: number;
   loc_y: number;
   loc_z: number;
+  magnitude: number;
+  energy?: number;
 }
-[];
 
 interface Layers {
   layer_depth: number;
@@ -43,7 +43,6 @@ interface Layers {
   layer_name: string;
   layer_distance: number;
 }
-[];
 
 const ModelShow = () => {
   const [messageApi, contextHolder] = message.useMessage();
@@ -52,11 +51,9 @@ const ModelShow = () => {
   const [projectArr, setProjectArr] = useState<any[]>([]);
   const [modelArr, setModelArr] = useState([]);
   const [points, setPoints] = useState([]);
-  const [events, setEvents] = useState<Events | []>([]);
-  // 事件展示方式
-  const [eventMode, setEventMode] = useState(0);
-  const [layers, setLayers] = useState<Layers | []>([]);
-  const [compass, setCompass] = useState(null);
+  const [events, setEvents] = useState<Events[]>([]);
+  const [layers, setLayers] = useState<Layers[]>([]);
+  const [compass, setCompass] = useState<any>(null);
   const [fullModelList, setFullModelList] = useState<any[]>([]);
   const [csvData, setCsvData] = useState<any[]>([]);
   const [form] = Form.useForm();
@@ -135,16 +132,7 @@ const ModelShow = () => {
               <Form.Item label="事件时间段" name="timeRage">
                 <RangePicker />
               </Form.Item>
-              <Form.Item label="事件模型" name="eventMode">
-                <Select
-                  options={[
-                    { value: 0, label: '点云图' },
-                    { value: 1, label: '频次密度图' },
-                  ]}
-                  style={{ width: 200 }}
-                  defaultValue={0}
-                />
-              </Form.Item>
+
               <Form.Item>
                 <Space>
                   <Button>重置</Button>
@@ -227,7 +215,6 @@ const ModelShow = () => {
                           project_id: params.project_id || null,
                         });
                         setEvents(eventList);
-                        setEventMode(params.eventMode);
                       }
 
                       const { list: layers } = await getLayerList({
@@ -264,7 +251,6 @@ const ModelShow = () => {
               points={points}
               events={events}
               layers={layers}
-              eventMode={eventMode}
               compass={compass}
               csvData={csvData}
             />

@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { 
-    createSolidLayer, 
-    createBoxAxes, 
-    createEventSpheres, 
-    createCompass 
+import {
+    createSolidLayer,
+    createBoxAxes,
+    createEventSpheres,
+    createCompass,
+    createLayerNames
 } from '@/utils/threeUtils';
 
 // 类型定义
@@ -29,6 +30,7 @@ interface LayerData {
     layer_color: string;
     layer_name: string;
     layer_distance: number; // 距离顶板的偏移量
+    layer_type?: number; // 0: 地质层位, 1: 虚拟分析分区
 }
 
 interface SceneProps {
@@ -39,12 +41,12 @@ interface SceneProps {
     csvData?: any[]; // 兼容旧接口
 }
 
-const Scene: React.FC<SceneProps> = ({ 
-    points = [], 
-    events = [], 
-    layers = [], 
-    compass, 
-    csvData 
+const Scene: React.FC<SceneProps> = ({
+    points = [],
+    events = [],
+    layers = [],
+    compass,
+    csvData
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -52,7 +54,7 @@ const Scene: React.FC<SceneProps> = ({
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const controlsRef = useRef<OrbitControls | null>(null);
     const requestRef = useRef<number>();
-    
+
     // 用于坐标归一化的中心点
     const centerRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0));
 
@@ -63,8 +65,8 @@ const Scene: React.FC<SceneProps> = ({
 
     // 1. 数据预处理：合并 csvData 和 points，并计算包围盒与中心点
     const { dataPoints, bounds, center } = useMemo(() => {
-        const rawPoints = (csvData && csvData.length > 0) 
-            ? csvData.map(p => ({ point_x: p.x, point_y: p.y, point_z: p.z })) 
+        const rawPoints = (csvData && csvData.length > 0)
+            ? csvData.map(p => ({ point_x: p.x, point_y: p.y, point_z: p.z }))
             : points;
 
         if (rawPoints.length < 3) return { dataPoints: [], bounds: null, center: new THREE.Vector3() };
@@ -105,7 +107,7 @@ const Scene: React.FC<SceneProps> = ({
         // Camera
         const camera = new THREE.PerspectiveCamera(45, width / height, 1, 50000);
         camera.up.set(0, 0, 1); // Z轴向上
-        
+
         // Renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(width, height);
@@ -120,7 +122,7 @@ const Scene: React.FC<SceneProps> = ({
         // Lights (复用 CoalView 的灯光设置，立体感更强)
         const ambient = new THREE.AmbientLight(0xffffff, 0.6);
         scene.add(ambient);
-        
+
         const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
         mainLight.position.set(500, -500, 1000);
         scene.add(mainLight);
@@ -158,39 +160,48 @@ const Scene: React.FC<SceneProps> = ({
         // Raycaster Setup
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
-        
+
         const onMouseMove = (event: MouseEvent) => {
-            if (!containerRef.current) return;
+            if (!containerRef.current || !cameraRef.current || !sceneRef.current) return;
             const rect = containerRef.current.getBoundingClientRect();
             mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
             mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-            raycaster.setFromCamera(mouse, camera);
-            
-            // 查找所有 Event Spheres
-            const eventGroup = scene.getObjectByName("EventsGroup");
+            raycaster.setFromCamera(mouse, cameraRef.current);
+
+            const eventGroup = sceneRef.current.getObjectByName("EventsGroup");
             if (eventGroup) {
-                const intersects = raycaster.intersectObjects(eventGroup.children);
+                const intersects = raycaster.intersectObjects([eventGroup]);
+
                 if (intersects.length > 0) {
-                    const data = intersects[0].object.userData;
-                    setTooltip({
-                        visible: true,
-                        x: event.clientX + 15,
-                        y: event.clientY + 15,
-                        content: (
-                            <>
-                                <div><b>微震事件</b></div>
-                                <div>震级: {data.magnitude?.toFixed(2)}</div>
-                                <div>位置: {data.x.toFixed(1)}, {data.y.toFixed(1)}, {data.z.toFixed(1)}</div>
-                            </>
-                        )
-                    });
-                    document.body.style.cursor = 'pointer';
-                } else {
-                    setTooltip(prev => ({ ...prev, visible: false }));
-                    document.body.style.cursor = 'default';
+                    const intersect = intersects[0];
+                    const obj = intersect.object as THREE.InstancedMesh;
+
+                    if (obj.isInstancedMesh && intersect.instanceId !== undefined) {
+                        const raw = obj.userData.rawEvents[intersect.instanceId];
+                        if (raw) {
+                            setTooltip({
+                                visible: true,
+                                x: event.clientX + 15,
+                                y: event.clientY + 15,
+                                content: (
+                                    <>
+                                        <div><b>微震事件</b></div>
+                                        <div>震级: {raw.magnitude?.toFixed(2)}</div>
+                                        <div>位置: {raw.loc_x?.toFixed(1)}, {raw.loc_y?.toFixed(1)}, {raw.loc_z?.toFixed(1)}</div>
+                                    </>
+                                )
+                            });
+                            document.body.style.cursor = 'pointer';
+                            return;
+                        }
+                    }
                 }
             }
+
+            // 未匹配到任何对象
+            setTooltip(prev => ({ ...prev, visible: false }));
+            document.body.style.cursor = 'default';
         };
         renderer.domElement.addEventListener('mousemove', onMouseMove);
 
@@ -212,17 +223,17 @@ const Scene: React.FC<SceneProps> = ({
         if (!scene || !camera || !controls || !bounds) return;
 
         // 清理旧模型
-        ["LayerGroup", "AxesGroup", "EventsGroup", "CompassGroup"].forEach(name => {
+        ["LayerGroup", "AxesGroup", "EventsGroup", "CompassGroup", "LayerLabelsGroup"].forEach(name => {
             const oldGroup = scene.getObjectByName(name);
             if (oldGroup) {
                 scene.remove(oldGroup);
                 // 简单的内存清理
                 oldGroup.traverse((child: any) => {
-                   if (child.geometry) child.geometry.dispose();
-                   if (child.material) {
-                       if (Array.isArray(child.material)) child.material.forEach((m: any) => m.dispose());
-                       else child.material.dispose();
-                   }
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) {
+                        if (Array.isArray(child.material)) child.material.forEach((m: any) => m.dispose());
+                        else child.material.dispose();
+                    }
                 });
             }
         });
@@ -233,14 +244,17 @@ const Scene: React.FC<SceneProps> = ({
         // --- A. 绘制地层 (LayerGroup) ---
         const layerGroup = new THREE.Group();
         layerGroup.name = "LayerGroup";
-        
+
         // 如果有 layers 定义，则根据 layers 生成多层；否则生成一个默认层
-        const layersRenderList = layers.length > 0 ? layers : [{
+        // 过滤掉虚拟分析分区 (layer_type === 1)，暂时不在三维场景展示
+        const filteredLayers = layers.filter(l => l.layer_type !== 1);
+
+        const layersRenderList = filteredLayers.length > 0 ? filteredLayers : (layers.length > 0 ? [] : [{
             layer_name: "默认煤层",
             layer_depth: 10,
             layer_color: "#1a1a1a",
             layer_distance: 0
-        }];
+        }]);
 
         layersRenderList.forEach(layer => {
             // 构造该层的数据点 (Z轴根据 layer_distance 偏移)
@@ -248,10 +262,10 @@ const Scene: React.FC<SceneProps> = ({
                 ...p,
                 point_z: p.point_z + (layer.layer_distance || 0)
             }));
-            
+
             const mesh = createSolidLayer(
-                layerPoints, 
-                layer.layer_depth || 10, 
+                layerPoints,
+                layer.layer_depth || 10,
                 new THREE.Color(layer.layer_color),
                 center
             );
@@ -260,12 +274,22 @@ const Scene: React.FC<SceneProps> = ({
         });
         scene.add(layerGroup);
 
+        // --- 绘制地层名称标注 ---
+        if (layersRenderList.length > 0) {
+            createLayerNames(
+                layersRenderList,
+                bounds.minX - center.x,
+                bounds.minY - center.y,
+                dataPoints[0].point_z - center.z,
+                scene
+            );
+        }
+
         // --- B. 绘制坐标轴 (AxesGroup) ---
         createBoxAxes(bounds, scene, center);
 
         // --- C. 绘制微震事件 (EventsGroup) ---
         if (events && events.length > 0) {
-          console.log('绘制微震事件', events);
             createEventSpheres(events, scene, center);
         }
 
@@ -291,7 +315,7 @@ const Scene: React.FC<SceneProps> = ({
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
             <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-            
+
             {/* React Portal or Absolute Div for Tooltip */}
             {tooltip.visible && (
                 <div style={{

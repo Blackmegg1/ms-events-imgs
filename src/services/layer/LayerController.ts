@@ -27,6 +27,7 @@ export function addLayer(data: {
   layer_depth: number;
   layer_distance?: number;
   layer_color: string;
+  layer_type?: number;
 }) {
   return request('/api/layer', {
     method: 'POST',
@@ -44,6 +45,7 @@ export function updateLayer(
     layer_depth: number;
     layer_distance: number;
     layer_color: string;
+    layer_type?: number;
   },
 ) {
   return request(`/api/layer/${layer_id}`, {
