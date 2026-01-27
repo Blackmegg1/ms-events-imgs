@@ -151,15 +151,15 @@ const Scene: React.FC<SceneProps> = ({
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
 
-        // Lights (复用 CoalView 的灯光设置，立体感更强)
-        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        // Lights (调高环境光，降低平行光，使颜色更均匀，减少明暗对比)
+        const ambient = new THREE.AmbientLight(0xffffff, 0.95);
         scene.add(ambient);
 
-        const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        const mainLight = new THREE.DirectionalLight(0xffffff, 0.3);
         mainLight.position.set(500, -500, 1000);
         scene.add(mainLight);
 
-        const backLight = new THREE.DirectionalLight(0xecf0f1, 0.5);
+        const backLight = new THREE.DirectionalLight(0xecf0f1, 0.2);
         backLight.position.set(-500, 500, 200);
         scene.add(backLight);
 
@@ -288,7 +288,8 @@ const Scene: React.FC<SceneProps> = ({
                 layerPoints,
                 layer.layer_depth || 10,
                 new THREE.Color(layer.layer_color),
-                center
+                center,
+                layer.layer_type === 1 ? 0.4 : 0.95 // 分析分区降低透明度 (0.4)，地质分区保持高透明度 (0.95)
             );
             mesh.name = layer.layer_name;
             layerGroup.add(mesh);

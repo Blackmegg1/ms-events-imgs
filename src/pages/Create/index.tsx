@@ -194,8 +194,11 @@ const Create = () => {
         for (const zoneId of params.analysis_zone) {
           const zone = analysisZones.find(z => z.id === zoneId);
           if (zone) {
-            const bottomZ = zone.layer_distance;
-            const topZ = zone.layer_distance + zone.layer_depth;
+            // 与模型展示页面逻辑保持一致：
+            // 层距 (layer_distance) 是顶面相对于基准面的偏移
+            // 层厚 (layer_depth) 是从顶面向下延伸的距离
+            const topZ = zone.layer_distance;
+            const bottomZ = zone.layer_distance - zone.layer_depth;
             const filtered = await computerEvent(
               params.project_id,
               list,

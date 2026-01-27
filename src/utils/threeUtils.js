@@ -118,7 +118,8 @@ export function createSolidLayer(points, depth, color, center, opacity = 0.95) {
         roughness: 0.8,
         transparent: true,
         opacity: opacity,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        flatShading: true // 开启平面着色，防止跨面颜色过渡不均
     });
 
     return new THREE.Mesh(geo, mat);
