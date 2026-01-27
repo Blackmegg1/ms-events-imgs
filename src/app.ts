@@ -94,7 +94,7 @@ export const layout = ({ initialState, setInitialState }: any) => {
     onPageChange: () => {
       const { location } = history;
       // 如果没有登录，重定向到 login
-      if (!initialState?.currentUser && location.pathname !== '/login') {
+      if (!initialState?.currentUser && !localStorage.getItem('token') && location.pathname !== '/login') {
         history.push('/login');
       }
     },

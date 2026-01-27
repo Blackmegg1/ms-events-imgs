@@ -108,8 +108,8 @@ const UserList: React.FC = () => {
                         <PlusOutlined /> 新建用户
                     </Button>,
                 ]}
-                request={async () => {
-                    const res = await getUsers();
+                request={async (params) => {
+                    const res = await getUsers(params);
                     return {
                         data: res.data || [],
                         success: true,

@@ -142,6 +142,12 @@ const EditTable = ({ data, form, setData }) => {
       editable: true,
     },
     {
+      title: "角度(°)",
+      dataIndex: "angle",
+      inputType: "number",
+      editable: true,
+    },
+    {
       title: "颜色",
       dataIndex: "color",
       inputType: "color",

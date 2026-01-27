@@ -1,8 +1,9 @@
 import { request } from '@umijs/max';
 
-export async function getUsers() {
+export async function getUsers(params?: any) {
     return request('/api/users', {
         method: 'GET',
+        params,
     });
 }
 

@@ -24,6 +24,7 @@ const Cube = () => {
       x: 80,
       type: 1,
       depth: 2,
+      angle: 0,
       color: 'rgb(255, 0, 0)',
     },
   ]);
@@ -104,7 +105,7 @@ const Cube = () => {
 
     for (let geo of geoData) {
       if (geo.type === 1) {
-        addCuttingPlane(geo.x, geo.depth, geo.color);
+        addCuttingPlane(geo.x, geo.depth, geo.color, geo.angle);
       } else {
         addCurve(geo.x, geo.depth, geo.color);
       }
@@ -211,13 +212,14 @@ const Cube = () => {
       mesh.add(lines);
     }
 
-    function addCuttingPlane(x, depth = 1, color = 'rgb(255, 0, 0)') {
+    function addCuttingPlane(x, depth = 1, color = 'rgb(255, 0, 0)', angle = 0) {
       var boxGeometry = new THREE.BoxGeometry(depth, 20, 20);
       var boxMaterial = new THREE.MeshBasicMaterial({ color: color });
       var box = new THREE.Mesh(boxGeometry, boxMaterial);
       box.position.x = x;
       box.position.y = 10;
       box.position.z = 10;
+      box.rotation.z = THREE.MathUtils.degToRad(angle);
       scene.add(box);
     }
 
@@ -345,6 +347,7 @@ const Cube = () => {
         x: 0,
         type: 1,
         depth: 1,
+        angle: 0,
         color: 'rgb(255, 0, 0)',
       },
     ];

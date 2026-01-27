@@ -39,6 +39,7 @@ interface SceneProps {
     layers?: LayerData[];
     compass?: { start: number[]; end: number[] };
     csvData?: any[]; // 兼容旧接口
+    showAnalysis?: boolean;
 }
 
 const Scene: React.FC<SceneProps> = ({
@@ -46,7 +47,8 @@ const Scene: React.FC<SceneProps> = ({
     events = [],
     layers = [],
     compass,
-    csvData
+    csvData,
+    showAnalysis = false
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -62,6 +64,8 @@ const Scene: React.FC<SceneProps> = ({
     const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; content: React.ReactNode }>({
         visible: false, x: 0, y: 0, content: null
     });
+
+    const [isLegendCollapsed, setIsLegendCollapsed] = useState(false);
 
     // 1. 数据预处理：合并 csvData 和 points，并计算包围盒与中心点
     const { dataPoints, bounds, center } = useMemo(() => {
@@ -93,6 +97,34 @@ const Scene: React.FC<SceneProps> = ({
             center: c
         };
     }, [points, csvData]);
+
+    // 核心渲染层位列表计算
+    const activeLayers = useMemo(() => {
+        const filtered = layers.filter(l => showAnalysis ? true : l.layer_type !== 1);
+        if (filtered.length > 0) return filtered;
+        // 如果原本有数据但过滤后没了，则返回空（除非完全没有 layers 传入，才给默认煤层）
+        if (layers.length > 0 && filtered.length === 0) return [];
+        return [{
+            layer_name: "默认煤层",
+            layer_depth: 10,
+            layer_color: "#1a1a1a",
+            layer_distance: 0
+        }] as LayerData[];
+    }, [layers, showAnalysis]);
+
+    // 图例数据计算
+    const legendData = useMemo(() => {
+        if (!bounds || activeLayers.length === 0) return [];
+        return activeLayers.map(layer => {
+            const zMin = bounds.minZ + (layer.layer_distance || 0) - (layer.layer_depth || 10);
+            const zMax = bounds.maxZ + (layer.layer_distance || 0);
+            return {
+                name: layer.layer_name,
+                color: layer.layer_color,
+                range: `${zMin.toFixed(1)} ~ ${zMax.toFixed(1)}`
+            };
+        });
+    }, [bounds, activeLayers]);
 
     // 2. 初始化 Three.js 环境 (仅执行一次)
     useEffect(() => {
@@ -245,18 +277,7 @@ const Scene: React.FC<SceneProps> = ({
         const layerGroup = new THREE.Group();
         layerGroup.name = "LayerGroup";
 
-        // 如果有 layers 定义，则根据 layers 生成多层；否则生成一个默认层
-        // 过滤掉虚拟分析分区 (layer_type === 1)，暂时不在三维场景展示
-        const filteredLayers = layers.filter(l => l.layer_type !== 1);
-
-        const layersRenderList = filteredLayers.length > 0 ? filteredLayers : (layers.length > 0 ? [] : [{
-            layer_name: "默认煤层",
-            layer_depth: 10,
-            layer_color: "#1a1a1a",
-            layer_distance: 0
-        }]);
-
-        layersRenderList.forEach(layer => {
+        activeLayers.forEach(layer => {
             // 构造该层的数据点 (Z轴根据 layer_distance 偏移)
             const layerPoints = dataPoints.map(p => ({
                 ...p,
@@ -275,9 +296,9 @@ const Scene: React.FC<SceneProps> = ({
         scene.add(layerGroup);
 
         // --- 绘制地层名称标注 ---
-        if (layersRenderList.length > 0) {
+        if (activeLayers.length > 0) {
             createLayerNames(
-                layersRenderList,
+                activeLayers,
                 bounds.minX - center.x,
                 bounds.minY - center.y,
                 dataPoints[0].point_z - center.z,
@@ -310,11 +331,99 @@ const Scene: React.FC<SceneProps> = ({
         controls.target.set(0, 0, 0);
         controls.update();
 
-    }, [dataPoints, bounds, center, events, layers, compass]);
+    }, [dataPoints, bounds, center, events, activeLayers, compass, showAnalysis]);
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
             <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+
+            {/* Legend Overlay - Glassmorphism refined style */}
+            {legendData.length > 0 && (
+                <div style={{
+                    position: 'absolute',
+                    top: '10px',
+                    left: '10px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+                    backdropFilter: 'blur(12px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(12px) saturate(180%)',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    zIndex: 10,
+                    maxWidth: isLegendCollapsed ? '130px' : '300px',
+                    border: '1px solid rgba(255, 255, 255, 0.4)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                    cursor: 'default'
+                }}>
+                    <div
+                        onClick={() => setIsLegendCollapsed(!isLegendCollapsed)}
+                        style={{
+                            fontWeight: 700,
+                            marginBottom: isLegendCollapsed ? '0' : '10px',
+                            color: '#141414',
+                            fontSize: '12px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            cursor: 'pointer',
+                            userSelect: 'none'
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ width: '4px', height: '14px', background: '#1890ff', borderRadius: '10px' }} />
+                            层位详情
+                        </div>
+                        <span style={{
+                            fontSize: '10px',
+                            opacity: 0.5,
+                            transform: isLegendCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.3s',
+                            marginLeft: '8px'
+                        }}>
+                            ▼
+                        </span>
+                    </div>
+
+                    {!isLegendCollapsed && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '4px' }}>
+                            {legendData.map((item, index) => (
+                                <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+                                    <div style={{
+                                        width: '12px',
+                                        height: '12px',
+                                        backgroundColor: item.color,
+                                        borderRadius: '50%',
+                                        boxShadow: '0 0 4px rgba(0,0,0,0.2)',
+                                        flexShrink: 0
+                                    }} />
+                                    <span style={{
+                                        color: '#262626',
+                                        fontWeight: 600,
+                                        flex: 1,
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                    }}>
+                                        {item.name}
+                                    </span>
+                                    <span style={{
+                                        fontWeight: 700,
+                                        color: '#000',
+                                        fontFamily: '"SF Mono", "Monaco", "Consolas", monospace',
+                                        fontSize: '12px',
+                                        backgroundColor: 'rgba(0,0,0,0.05)',
+                                        padding: '1px 4px',
+                                        borderRadius: '3px'
+                                    }}>
+                                        {item.range}m
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* React Portal or Absolute Div for Tooltip */}
             {tooltip.visible && (

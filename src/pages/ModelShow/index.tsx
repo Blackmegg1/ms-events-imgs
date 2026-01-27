@@ -12,6 +12,7 @@ import {
   Row,
   Select,
   Space,
+  Switch,
   message,
 } from 'antd';
 import dayjs from 'dayjs';
@@ -56,6 +57,7 @@ const ModelShow = () => {
   const [compass, setCompass] = useState<any>(null);
   const [fullModelList, setFullModelList] = useState<any[]>([]);
   const [csvData, setCsvData] = useState<any[]>([]);
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -123,6 +125,12 @@ const ModelShow = () => {
                   options={modelArr}
                   style={{ width: 200 }}
                   placeholder="请选择"
+                />
+              </Form.Item>
+              <Form.Item label="展示分析层位" valuePropName="checked">
+                <Switch
+                  checked={showAnalysis}
+                  onChange={(checked) => setShowAnalysis(checked)}
                 />
               </Form.Item>
             </Space>
@@ -253,6 +261,7 @@ const ModelShow = () => {
               layers={layers}
               compass={compass}
               csvData={csvData}
+              showAnalysis={showAnalysis}
             />
           </div>
         </Card>

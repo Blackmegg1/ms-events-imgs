@@ -314,6 +314,11 @@ const Create = () => {
                 />
               </Form.Item>
             </Col>
+            <Col span={8}>
+              <Form.Item label="事件时间段" name="timeRage">
+                <RangePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
             <Col span={6}>
               <Form.Item label="分析分区预设（支持多选）" name="analysis_zone">
                 <Select
@@ -324,12 +329,7 @@ const Create = () => {
                 />
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item label="事件时间段" name="timeRage">
-                <RangePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
+            <Col span={6}>
               <Form.Item
                 label="采线坐标组"
                 name="line_coords"
