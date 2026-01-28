@@ -121,7 +121,7 @@ const Scene: React.FC<SceneProps> = ({
             return {
                 name: layer.layer_name,
                 color: layer.layer_color,
-                range: `${zMin.toFixed(1)} ~ ${zMax.toFixed(1)}`
+                range: `${zMin.toFixed(2)} ~ ${zMax.toFixed(2)}`
             };
         });
     }, [bounds, activeLayers]);

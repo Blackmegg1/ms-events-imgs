@@ -185,7 +185,7 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
         label="层厚(m)"
         rules={[{ required: true, message: '请输入层厚' }]}
       >
-        <InputNumber />
+        <InputNumber step={0.1} precision={2} style={{ width: '100%' }} />
       </Form.Item>
       <Form.Item
         name="layer_color"
@@ -203,7 +203,7 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
         label="层距（m）"
         rules={[{ required: true, message: '请输入层距' }]}
       >
-        <InputNumber />
+        <InputNumber step={0.1} precision={2} style={{ width: '100%' }} />
       </Form.Item>
       <Form.Item
         name="layer_type"
