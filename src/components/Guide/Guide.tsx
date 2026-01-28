@@ -12,31 +12,20 @@ interface Props {
 interface UpdateItem {
   date: string;
   title: string;
-  description: string;
+  description: string | string[];
   icon?: React.ReactNode;
 }
 
 const updates: UpdateItem[] = [
   {
-    date: '2026-01-04',
-    title: '平面分布图支持高能事件标记',
-    description: '新增高能事件预警功能，可设置能量阈值并高亮显示大于该阈值的微震事件。',
-  },
-  {
-    date: '2025-09-11',
-    title: '事件模拟与导出时间优化',
-    description:
-      '新增数据模拟功能；事件批量导出支持按项目设置自定义时间格式；关闭大地坐标不清空参考点。',
-  },
-  {
-    date: '2025-06-25',
-    title: '导出支持大地坐标转换',
-    description: '项目管理新增参考点，可批量导出转换后坐标。',
-  },
-  {
-    date: '2025-06-20',
-    title: '平面分布图支持采线',
-    description: '填写采线坐标组，在平面分布图绘制回采线。',
+    date: '2026-01-28',
+    title: 'V2.0 内容更新',
+    description: [
+      '支持页面多开，提升多任务处理效率',
+      '模型展示支持上传 CSV 文件，支持更多点位数据构建精细化模型',
+      '层位管理新增“分析分层”，支持作为预设层位用于微震事件划分',
+      '全新账号权限体系，支持项目级数据隔离与权限分级管理',
+    ],
   },
 ];
 
@@ -55,7 +44,17 @@ const Guide: React.FC<Props> = ({ name }) => {
               <strong style={{ fontSize: 16 }}>
                 {item.icon} {item.title}
               </strong>
-              <div style={{ marginLeft: 14, color: '#555' }}>{item.description}</div>
+              <div style={{ marginLeft: 14, color: '#555', marginTop: 8 }}>
+                {Array.isArray(item.description) ? (
+                  <ul style={{ paddingLeft: 16, margin: 0 }}>
+                    {item.description.map((desc, i) => (
+                      <li key={i} style={{ marginBottom: 4 }}>{desc}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  item.description
+                )}
+              </div>
             </Timeline.Item>
           ))}
         </Timeline>

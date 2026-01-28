@@ -79,9 +79,16 @@ const Login: React.FC = () => {
 
     return (
         <div className={styles.container}>
+            <Alert
+                className={styles.topNotice}
+                message="因本系统部署在公网，为保障数据安全，请咨询管理员注册后使用！"
+                type="info"
+                showIcon
+                closable
+            />
             <div className={styles.content}>
                 <div className={styles.login}>
-                    <div className={styles.title}>透明地质数据处理系统</div>
+                    <div className={styles.title}>透明地质数据处理系统 v2.0</div>
                     <LoginForm
                         subTitle=" "
                         initialValues={{

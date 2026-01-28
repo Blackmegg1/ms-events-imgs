@@ -1,9 +1,18 @@
 .container {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: auto;
   background: #f0f2f5;
+
+  .topNotice {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    z-index: 10;
+    max-width: 400px;
+  }
   
   .content {
     flex: 1;
