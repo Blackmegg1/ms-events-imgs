@@ -6,6 +6,7 @@ export default defineConfig({
   model: {},
   initialState: {},
   request: {},
+  hash: true,
   layout: {
     title: '透明地质数据处理系统 v2.0',
   },
@@ -109,7 +110,8 @@ export default defineConfig({
   npmClient: 'pnpm',
   proxy: {
     '/api': {
-      target: 'http://localhost:3001/',
+      // target: 'http://localhost:3001/',
+      target:'http://192.168.74.19:3000/',
       changeOrigin: true,
       pathRewrite: { '^/api': '' },
     },

@@ -98,7 +98,7 @@ const Scene: React.FC<SceneProps> = ({
         };
     }, [points, csvData]);
 
-    // 核心渲染层位列表计算
+    // 2. 核心渲染层位列表计算
     const activeLayers = useMemo(() => {
         const filtered = layers.filter(l => showAnalysis ? true : l.layer_type !== 1);
         if (filtered.length > 0) return filtered;
@@ -112,7 +112,33 @@ const Scene: React.FC<SceneProps> = ({
         }] as LayerData[];
     }, [layers, showAnalysis]);
 
-    // 图例数据计算
+    // 3. 计算视觉包围盒 (用于坐标轴和相机适配)
+    const visualBounds = useMemo(() => {
+        if (!bounds) return null;
+        let { minX, maxX, minY, maxY, minZ, maxZ } = bounds;
+
+        // 包含所有激活的层位
+        activeLayers.forEach(layer => {
+            const offset = layer.layer_distance || 0;
+            const depth = layer.layer_depth || 10;
+            // 层位的 Z 范围: [p.z + offset - depth, p.z + offset]
+            minZ = Math.min(minZ, bounds.minZ + offset - depth);
+            maxZ = Math.max(maxZ, bounds.maxZ + offset);
+        });
+
+        // 包含微震事件
+        if (events && events.length > 0) {
+            events.forEach(e => {
+                minX = Math.min(minX, e.loc_x); maxX = Math.max(maxX, e.loc_x);
+                minY = Math.min(minY, e.loc_y); maxY = Math.max(maxY, e.loc_y);
+                minZ = Math.min(minZ, e.loc_z); maxZ = Math.max(maxZ, e.loc_z);
+            });
+        }
+
+        return { minX, maxX, minY, maxY, minZ, maxZ };
+    }, [bounds, activeLayers, events]);
+
+    // 4. 图例数据计算
     const legendData = useMemo(() => {
         if (!bounds || activeLayers.length === 0) return [];
         return activeLayers.map(layer => {
@@ -246,13 +272,13 @@ const Scene: React.FC<SceneProps> = ({
         };
     }, []);
 
-    // 3. 数据更新逻辑
+    // 5. 数据更新逻辑
     useEffect(() => {
         const scene = sceneRef.current;
         const camera = cameraRef.current;
         const controls = controlsRef.current;
 
-        if (!scene || !camera || !controls || !bounds) return;
+        if (!scene || !camera || !controls || !visualBounds || !bounds) return;
 
         // 清理旧模型
         ["LayerGroup", "AxesGroup", "EventsGroup", "CompassGroup", "LayerLabelsGroup"].forEach(name => {
@@ -308,7 +334,7 @@ const Scene: React.FC<SceneProps> = ({
         }
 
         // --- B. 绘制坐标轴 (AxesGroup) ---
-        createBoxAxes(bounds, scene, center);
+        createBoxAxes(visualBounds, scene, center);
 
         // --- C. 绘制微震事件 (EventsGroup) ---
         if (events && events.length > 0) {
@@ -322,8 +348,9 @@ const Scene: React.FC<SceneProps> = ({
 
         // --- E. 相机视角重置 ---
         const maxDim = Math.max(
-            bounds.maxX - bounds.minX,
-            bounds.maxY - bounds.minY
+            visualBounds.maxX - visualBounds.minX,
+            visualBounds.maxY - visualBounds.minY,
+            visualBounds.maxZ - visualBounds.minZ
         );
         const dist = maxDim * 1.5;
         // 类似 CoalView 的相机位置 (斜侧上方)
@@ -332,7 +359,7 @@ const Scene: React.FC<SceneProps> = ({
         controls.target.set(0, 0, 0);
         controls.update();
 
-    }, [dataPoints, bounds, center, events, activeLayers, compass, showAnalysis]);
+    }, [dataPoints, bounds, visualBounds, center, events, activeLayers, compass, showAnalysis]);
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
