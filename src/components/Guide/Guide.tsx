@@ -18,6 +18,11 @@ interface UpdateItem {
 
 const updates: UpdateItem[] = [
   {
+    date: '2026-01-30',
+    title: 'V2.1 内容更新',
+    description: ['层位管理新增柱状图预览', '模型展示效果优化','批量导出事件支持分层分析'],
+  },
+  {
     date: '2026-01-28',
     title: 'V2.0 内容更新',
     description: [

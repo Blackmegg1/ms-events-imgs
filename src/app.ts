@@ -83,7 +83,7 @@ export const layout = ({ initialState, setInitialState }: any) => {
   const { currentUser } = initialState || {};
   return {
     logo: logo,
-    title: '透明地质数据处理系统 v2.0',
+    title: '透明地质数据处理系统 v2.1',
     layout: 'mix', // 采用顶部+侧边混合布局，看起来更高级
     splitMenus: false,
     fixedHeader: true,

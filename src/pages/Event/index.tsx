@@ -1,17 +1,18 @@
 import eventServices from '@/services/event';
 import projectServices from '@/services/project';
 import { createAffineTransform2D } from '@/utils';
-import {
-  FooterToolbar,
-  PageContainer,
-  ProTable,
-} from '@ant-design/pro-components';
-import { Button, Form, message } from 'antd';
+import { ActionType, FooterToolbar, PageContainer, ProTable } from '@ant-design/pro-components';
+import { Button, Dropdown, Form, message } from 'antd';
+import { DownOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useEffect, useRef, useState } from 'react';
+import { Delaunay } from 'd3-delaunay';
 import BatchImport from './components/BatchImport';
 import CreateForm from './components/CreateForm';
 import SimulateModal from './components/SimulateModal';
+import modelServices from '@/services/model';
+import layerServices from '@/services/layer';
+import { getPointList } from '@/services/point/PointController';
 
 const { getEventList, addEvent, batchDeleteEvents } =
   eventServices.EventController;
@@ -22,12 +23,12 @@ const Event: React.FC = () => {
   const [createModalVisible, handleCreateVisible] = useState(false);
   const [batchModalVisible, handleBatchVisible] = useState(false);
   const [simulateModalVisible, setSimulateModalVisible] = useState(false);
-  const [selectedRowsState, setSelectedRows] = useState([]);
-  const [projectDist, setProjectDist] = useState({});
-  const [activeProjectDist, setActiveProjectDist] = useState({});
+  const [selectedRowsState, setSelectedRows] = useState<any[]>([]);
+  const [projectDist, setProjectDist] = useState<any>({});
+  const [activeProjectDist, setActiveProjectDist] = useState<any>({});
 
-  const tableRef = useRef();
-  const formRef = useRef();
+  const tableRef = useRef<ActionType>();
+  const formRef = useRef<any>();
 
   useEffect(() => {
     // 获取路由参数
@@ -178,8 +179,29 @@ const Event: React.FC = () => {
     },
   ];
 
+  // 几何助手函数
+  const pointInTriangle = (px: number, py: number, triangle: any[]) => {
+    const [a, b, c] = triangle;
+    const s1 = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
+    const s2 = (c.x - b.x) * (py - b.y) - (c.y - b.y) * (px - b.x);
+    const s3 = (a.x - c.x) * (py - c.y) - (a.y - c.y) * (px - c.x);
+    const has_neg = s1 < 0 || s2 < 0 || s3 < 0;
+    const has_pos = s1 > 0 || s2 > 0 || s3 > 0;
+    return !(has_neg && has_pos);
+  };
+
+  const interpolateZ = (x: number, y: number, triangle: any[]) => {
+    const [a, b, c] = triangle;
+    const detT = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
+    if (Math.abs(detT) < 1e-10) return (a.z + b.z + c.z) / 3.0;
+    const l1 = ((b.y - c.y) * (x - c.x) + (c.x - b.x) * (y - c.y)) / detT;
+    const l2 = ((c.y - a.y) * (x - c.x) + (a.x - c.x) * (y - c.y)) / detT;
+    const l3 = 1.0 - l1 - l2;
+    return l1 * a.z + l2 * b.z + l3 * c.z;
+  };
+
   // 批量导出
-  const handleBatchExport = async () => {
+  const handleBatchExport = async (type: 'direct' | 'layered' = 'direct') => {
     // @ts-ignore
     const formParams = formRef.current?.getFieldsValue(true);
     if (!formParams.timeRage) {
@@ -214,7 +236,55 @@ const Event: React.FC = () => {
         ? 'YYYY/MM/DD HH:mm'
         : 'YYMMDD';
     const requiresTimeOfDay = /[HhmsS]/.test(targetFormat);
-    let csvHeader = '发震时刻,x,y,z,能量(KJ),震级(M)';
+    let csvHeader = useLTP
+      ? '发震时刻,x,y,z,能量(J),震级(M)'
+      : '发震时刻,x,y,z,能量(KJ),震级(M)';
+
+    // 如果是分层导出，获取该项目的模型、点位和层位
+    let layers: any[] = [];
+    let delaunay: any = null;
+    let modelPoints: any[] = [];
+    let pointToTriangles: any[][] = [];
+
+    if (type === 'layered') {
+      try {
+        const { list: models } = await modelServices.ModelController.getModelList({
+          project_id: formParams.project_id,
+        });
+        if (models && models.length > 0) {
+          const modelId = models[models.length - 1].model_id;
+          const [layerResponse, pointResponse] = await Promise.all([
+            layerServices.LayerController.getLayerList({ model_id: modelId }),
+            getPointList({ model_id: modelId }),
+          ]);
+
+          layers = layerResponse?.list || [];
+          modelPoints = pointResponse?.list || [];
+
+          if (modelPoints.length >= 3) {
+            const coords = new Float64Array(modelPoints.length * 2);
+            for (let i = 0; i < modelPoints.length; i++) {
+              coords[i * 2] = modelPoints[i].point_x;
+              coords[i * 2 + 1] = modelPoints[i].point_y;
+            }
+            delaunay = new Delaunay(coords);
+
+            // 构建点到三角形映射
+            pointToTriangles = new Array(modelPoints.length);
+            for (let i = 0; i < modelPoints.length; i++) pointToTriangles[i] = [];
+            const { triangles } = delaunay;
+            for (let i = 0; i < triangles.length; i++) {
+              const pIdx = triangles[i];
+              const tIdx = Math.floor(i / 3);
+              pointToTriangles[pIdx].push(tIdx);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('获取模型背景数据失败', err);
+      }
+      csvHeader += ',层位分析';
+    }
 
     let transformFunc:
       | ((
@@ -225,8 +295,6 @@ const Event: React.FC = () => {
       | null = null;
 
     if (useLTP) {
-      csvHeader = '发震时刻,x,y,z,能量(J),震级(M)';
-
       try {
         const [src1, src2] = JSON.parse(project.ltp_map || '[]');
 
@@ -268,9 +336,66 @@ const Event: React.FC = () => {
           energy = Number((energy * 1000).toFixed(2));
         }
 
+        let layerName = '';
+        if (type === 'layered' && layers.length > 0 && delaunay) {
+          // ⚠️ 重要：分层判断必须使用原始坐标 (obj.loc_x, obj.loc_y)，因为模型点位是原始坐标
+          const checkX = obj.loc_x;
+          const checkY = obj.loc_y;
+          const checkZ = obj.loc_z;
+
+          const pIndex = delaunay.find(checkX, checkY);
+          let interpolatedZ = null;
+
+          if (pIndex !== -1) {
+            const triangleIndices = pointToTriangles[pIndex];
+            for (const tIdx of triangleIndices) {
+              const i0 = delaunay.triangles[tIdx * 3];
+              const i1 = delaunay.triangles[tIdx * 3 + 1];
+              const i2 = delaunay.triangles[tIdx * 3 + 2];
+
+              const tri = [
+                {
+                  x: modelPoints[i0].point_x,
+                  y: modelPoints[i0].point_y,
+                  z: modelPoints[i0].point_z,
+                },
+                {
+                  x: modelPoints[i1].point_x,
+                  y: modelPoints[i1].point_y,
+                  z: modelPoints[i1].point_z,
+                },
+                {
+                  x: modelPoints[i2].point_x,
+                  y: modelPoints[i2].point_y,
+                  z: modelPoints[i2].point_z,
+                },
+              ];
+
+              if (pointInTriangle(checkX, checkY, tri)) {
+                interpolatedZ = interpolateZ(checkX, checkY, tri);
+                break;
+              }
+            }
+          }
+
+          if (interpolatedZ !== null) {
+            const relativeZ = checkZ - interpolatedZ;
+            // 2. 根据 relativeZ 判断所在的层位
+            const hitLayer = layers.find(
+              (l) =>
+                relativeZ <= l.layer_distance &&
+                relativeZ >= l.layer_distance - l.layer_depth,
+            );
+            layerName = hitLayer ? hitLayer.layer_name : '未匹配';
+          } else {
+            layerName = '超出模型范围';
+          }
+        }
+
         return {
           // t: base.valueOf(),
-          row: `${formattedTime},${loc_x},${loc_y},${loc_z},${energy},${magnitude}`,
+          row: `${formattedTime},${loc_x},${loc_y},${loc_z},${energy},${magnitude}${type === 'layered' ? `,${layerName}` : ''
+            }`,
         };
       },
     );
@@ -282,7 +407,8 @@ const Event: React.FC = () => {
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const projectName = project?.text || '导出数据';
-    const fileName = `${projectName} ${formattedTimeRange?.[0]}~${formattedTimeRange?.[1]}.csv`;
+    const fileName = `${projectName} ${formattedTimeRange?.[0]}~${formattedTimeRange?.[1]
+      }${type === 'layered' ? '_分层' : ''}.csv`;
 
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -327,9 +453,27 @@ const Event: React.FC = () => {
           >
             数据测试
           </Button>,
-          <Button key="3" type="default" onClick={() => handleBatchExport()}>
-            批量导出
-          </Button>,
+          <Dropdown
+            key="3"
+            menu={{
+              items: [
+                {
+                  key: 'direct',
+                  label: '直接导出',
+                  onClick: () => handleBatchExport('direct'),
+                },
+                {
+                  key: 'layered',
+                  label: '分层导出',
+                  onClick: () => handleBatchExport('layered'),
+                },
+              ],
+            }}
+          >
+            <Button type="default">
+              批量导出 <DownOutlined />
+            </Button>
+          </Dropdown>,
         ]}
         rowSelection={{
           onChange: (_, selectedRows) =>
