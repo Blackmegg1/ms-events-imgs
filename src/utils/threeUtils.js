@@ -290,21 +290,91 @@ export function createLayerLabels(layers, minX, minY, centerZ, scene) {
 export { createLayerLabels as createLayerNames };
 
 /**
- * 创建简易指北针
+ * 创建 3D 指北针 (具有厚度和立体感)
  */
-export function createCompass(start, end, scene, center) {
-    const startVec = new THREE.Vector3(start[0] - center.x, start[1] - center.y, start[2] - center.z);
-    const endVec = new THREE.Vector3(end[0] - center.x, end[1] - center.y, end[2] - center.z);
-    const dir = new THREE.Vector3().subVectors(endVec, startVec).normalize();
-    const len = new THREE.Vector3().subVectors(endVec, startVec).length();
+export function createCompass(start, end, scene, center, targetLength) {
+    const startVec = new THREE.Vector3(Number(start[0]), Number(start[1]), Number(start[2]));
+    const endVec = new THREE.Vector3(Number(end[0]), Number(end[1]), Number(end[2]));
+    const direction = new THREE.Vector3().subVectors(endVec, startVec);
+    const dirNormalized = direction.clone().normalize();
+
+    // 长度处理
+    const length = targetLength || 100;
+    const thickness = length * 0.05;
 
     const group = new THREE.Group();
     group.name = "CompassGroup";
 
-    group.add(new THREE.ArrowHelper(dir, startVec, len, 0xff0000, 10, 5));
-    const label = makeTextSprite("N", 32, "#ff0000", true);
-    label.position.copy(endVec.add(dir.multiplyScalar(10)));
+    const arrowGroup = new THREE.Group();
+
+    const w1 = length * 0.4;
+    const h1 = length * 0.6;
+    const w2 = length * 0.3;
+    const h2 = length * 0.4;
+
+    const extrudeSettings = { depth: thickness, bevelEnabled: false };
+
+    // 头部
+    const headLeftShape = new THREE.Shape();
+    headLeftShape.moveTo(0, 0);
+    headLeftShape.lineTo(-w1 / 2, -h1);
+    headLeftShape.lineTo(0, -h1 * 0.7);
+    headLeftShape.lineTo(0, 0);
+    const headLeft = new THREE.Mesh(new THREE.ExtrudeGeometry(headLeftShape, extrudeSettings), new THREE.MeshPhongMaterial({ color: 0xffffff }));
+
+    const headRightShape = new THREE.Shape();
+    headRightShape.moveTo(0, 0);
+    headRightShape.lineTo(0, -h1 * 0.7);
+    headRightShape.lineTo(w1 / 2, -h1);
+    headRightShape.lineTo(0, 0);
+    const headRight = new THREE.Mesh(new THREE.ExtrudeGeometry(headRightShape, extrudeSettings), new THREE.MeshPhongMaterial({ color: 0x222222 }));
+
+    arrowGroup.add(headLeft, headRight);
+
+    // 杆
+    const shaftRadius = thickness * 0.2;
+    const shaftLen = length - h1 * 0.7 - h2 * 0.3;
+    const shaftGeo = new THREE.CylinderGeometry(shaftRadius, shaftRadius, shaftLen, 8);
+    const shaft = new THREE.Mesh(shaftGeo, new THREE.MeshPhongMaterial({ color: 0x333333 }));
+    shaft.position.y = -h1 * 0.7 - shaftLen / 2;
+    arrowGroup.add(shaft);
+
+    // 尾部
+    const tailLeftShape = new THREE.Shape();
+    tailLeftShape.moveTo(0, -length + h2 * 0.7);
+    tailLeftShape.lineTo(-w2 / 2, -length);
+    tailLeftShape.lineTo(0, -length - h2 * 0.2);
+    tailLeftShape.lineTo(0, -length + h2 * 0.7);
+    const tailLeft = new THREE.Mesh(new THREE.ExtrudeGeometry(tailLeftShape, extrudeSettings), new THREE.MeshPhongMaterial({ color: 0x222222 }));
+
+    const tailRightShape = new THREE.Shape();
+    tailRightShape.moveTo(0, -length + h2 * 0.7);
+    tailRightShape.lineTo(0, -length - h2 * 0.2);
+    tailRightShape.lineTo(w2 / 2, -length);
+    tailRightShape.lineTo(0, -length + h2 * 0.7);
+    const tailRight = new THREE.Mesh(new THREE.ExtrudeGeometry(tailRightShape, extrudeSettings), new THREE.MeshPhongMaterial({ color: 0xffffff }));
+
+    arrowGroup.add(tailLeft, tailRight);
+
+    // 居中
+    arrowGroup.position.z = -thickness / 2;
+
+    // 旋转到项目指北方向
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirNormalized);
+    group.add(arrowGroup);
+    group.applyQuaternion(quat);
+
+    // N 标签
+    const label = makeTextSprite("N", length * 0.4, "#000000", true);
+    label.position.copy(dirNormalized.clone().multiplyScalar(length * 0.15));
     group.add(label);
+
+    // 注意：在独立场景中使用时，我们不应用 center 偏移，直接放在原地
+    if (!center || (center.x === 0 && center.y === 0 && center.z === 0)) {
+        group.position.set(0, 0, 0);
+    } else {
+        group.position.set(endVec.x - center.x, endVec.y - center.y, endVec.z - center.z);
+    }
 
     scene.add(group);
 }

@@ -152,54 +152,96 @@ const Scene: React.FC<SceneProps> = ({
         });
     }, [bounds, activeLayers]);
 
+    const compassSceneRef = useRef<THREE.Scene | null>(null);
+    const compassCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+
     // 2. 初始化 Three.js 环境 (仅执行一次)
     useEffect(() => {
         if (!containerRef.current) return;
         const width = containerRef.current.clientWidth;
         const height = containerRef.current.clientHeight;
 
-        // Scene
+        // Main Scene
         const scene = new THREE.Scene();
-        scene.fog = new THREE.Fog(0xf0f2f5, 2000, 10000);
+        scene.fog = new THREE.Fog(0xf0f2f5, 1000, 10000);
 
-        // Camera
+        // Compass Scene (独立小场景)
+        const compassScene = new THREE.Scene();
+        const compassCamera = new THREE.PerspectiveCamera(45, 1, 1, 1000);
+        compassCamera.position.set(0, 0, 200);
+
+        // Main Camera
         const camera = new THREE.PerspectiveCamera(45, width / height, 1, 50000);
-        camera.up.set(0, 0, 1); // Z轴向上
+        camera.up.set(0, 0, 1);
 
         // Renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(width, height);
         renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.autoClear = false; // 手动清除以支持双场景叠加
         containerRef.current.appendChild(renderer.domElement);
 
         // Controls
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
 
-        // Lights (调高环境光，降低平行光，使颜色更均匀，减少明暗对比)
-        const ambient = new THREE.AmbientLight(0xffffff, 0.95);
-        scene.add(ambient);
-
-        const mainLight = new THREE.DirectionalLight(0xffffff, 0.3);
-        mainLight.position.set(500, -500, 1000);
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+        const mainLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        mainLight.position.set(1000, -1000, 1000);
         scene.add(mainLight);
 
-        const backLight = new THREE.DirectionalLight(0xecf0f1, 0.2);
-        backLight.position.set(-500, 500, 200);
-        scene.add(backLight);
+        const pointLight = new THREE.PointLight(0xffffff, 0.2);
+        pointLight.position.set(-1000, 1000, 500);
+        scene.add(pointLight);
+
+        // Compass Lights
+        compassScene.add(new THREE.AmbientLight(0xffffff, 1.0));
+        const cLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        cLight.position.set(50, 50, 100);
+        compassScene.add(cLight);
 
         // Save refs
         sceneRef.current = scene;
         cameraRef.current = camera;
         rendererRef.current = renderer;
         controlsRef.current = controls;
+        compassSceneRef.current = compassScene;
+        compassCameraRef.current = compassCamera;
 
         // Animation Loop
         const animate = () => {
             requestRef.current = requestAnimationFrame(animate);
             controls.update();
+
+            if (!renderer || !camera || !compassCamera) return;
+
+            // 1. 渲染主场景
+            renderer.setViewport(0, 0, width, height);
+            renderer.setScissor(0, 0, width, height);
+            renderer.setScissorTest(false);
+            renderer.clear();
             renderer.render(scene, camera);
+
+            // 2. 同步指北针相机状态
+            // 使指北针相机的旋转与主相机一致，但保持固定距离
+            const dist = 250;
+            const vector = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+            compassCamera.position.copy(vector.multiplyScalar(dist));
+            compassCamera.lookAt(0, 0, 0);
+            compassCamera.up.copy(camera.up);
+
+            // 3. 渲染指北针小窗口 (右上角)
+            const size = 150; // 小窗口尺寸
+            const padding = 10;
+            const w = containerRef.current?.clientWidth || width;
+            const h = containerRef.current?.clientHeight || height;
+
+            renderer.setViewport(w - size - padding, h - size - padding, size, size);
+            renderer.setScissor(w - size - padding, h - size - padding, size, size);
+            renderer.setScissorTest(true);
+            renderer.clearDepth(); // 仅清除深度，保留背景（或根据 alpha 透明度处理）
+            renderer.render(compassScene, compassCamera);
         };
         animate();
 
@@ -215,49 +257,39 @@ const Scene: React.FC<SceneProps> = ({
         };
         window.addEventListener('resize', handleResize);
 
-        // Raycaster Setup
+        // Raycaster Setup...
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
-
         const onMouseMove = (event: MouseEvent) => {
             if (!containerRef.current || !cameraRef.current || !sceneRef.current) return;
             const rect = containerRef.current.getBoundingClientRect();
             mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
             mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
             raycaster.setFromCamera(mouse, cameraRef.current);
 
             const eventGroup = sceneRef.current.getObjectByName("EventsGroup");
             if (eventGroup) {
                 const intersects = raycaster.intersectObjects([eventGroup]);
-
-                if (intersects.length > 0) {
-                    const intersect = intersects[0];
-                    const obj = intersect.object as THREE.InstancedMesh;
-
-                    if (obj.isInstancedMesh && intersect.instanceId !== undefined) {
-                        const raw = obj.userData.rawEvents[intersect.instanceId];
-                        if (raw) {
-                            setTooltip({
-                                visible: true,
-                                x: event.clientX + 15,
-                                y: event.clientY + 15,
-                                content: (
-                                    <>
-                                        <div><b>微震事件</b></div>
-                                        <div>震级: {raw.magnitude?.toFixed(2)}</div>
-                                        <div>位置: {raw.loc_x?.toFixed(1)}, {raw.loc_y?.toFixed(1)}, {raw.loc_z?.toFixed(1)}</div>
-                                    </>
-                                )
-                            });
-                            document.body.style.cursor = 'pointer';
-                            return;
-                        }
+                if (intersects.length > 0 && intersects[0].instanceId !== undefined) {
+                    const raw = (intersects[0].object as any).userData?.rawEvents?.[intersects[0].instanceId];
+                    if (raw) {
+                        setTooltip({
+                            visible: true,
+                            x: event.clientX + 15,
+                            y: event.clientY + 15,
+                            content: (
+                                <>
+                                    <div><b>微震事件</b></div>
+                                    <div>震级: {raw.magnitude?.toFixed(2)}</div>
+                                    <div>位置: {raw.loc_x?.toFixed(1)}, {raw.loc_y?.toFixed(1)}, {raw.loc_z?.toFixed(1)}</div>
+                                </>
+                            )
+                        });
+                        document.body.style.cursor = 'pointer';
+                        return;
                     }
                 }
             }
-
-            // 未匹配到任何对象
             setTooltip(prev => ({ ...prev, visible: false }));
             document.body.style.cursor = 'default';
         };
@@ -275,75 +307,61 @@ const Scene: React.FC<SceneProps> = ({
     // 5. 数据更新逻辑
     useEffect(() => {
         const scene = sceneRef.current;
-        const camera = cameraRef.current;
-        const controls = controlsRef.current;
-
-        if (!scene || !camera || !controls || !visualBounds || !bounds) return;
+        const renderer = rendererRef.current;
+        const compassScene = compassSceneRef.current;
+        if (!scene || !visualBounds || !bounds || !renderer || !compassScene) return;
 
         // 清理旧模型
         ["LayerGroup", "AxesGroup", "EventsGroup", "CompassGroup", "LayerLabelsGroup"].forEach(name => {
-            const oldGroup = scene.getObjectByName(name);
-            if (oldGroup) {
-                scene.remove(oldGroup);
-                // 简单的内存清理
-                oldGroup.traverse((child: any) => {
-                    if (child.geometry) child.geometry.dispose();
-                    if (child.material) {
-                        if (Array.isArray(child.material)) child.material.forEach((m: any) => m.dispose());
-                        else child.material.dispose();
-                    }
-                });
-            }
+            [scene, compassScene].forEach(s => {
+                const oldGroup = s.getObjectByName(name);
+                if (oldGroup) {
+                    s.remove(oldGroup);
+                    oldGroup.traverse((child: any) => {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) child.material.forEach((m: any) => m.dispose());
+                            else child.material.dispose();
+                        }
+                    });
+                }
+            });
         });
 
-        // 更新中心点 ref
         centerRef.current.copy(center);
 
-        // --- A. 绘制地层 (LayerGroup) ---
+        // --- A. 绘制地层 ---
         const layerGroup = new THREE.Group();
         layerGroup.name = "LayerGroup";
-
         activeLayers.forEach(layer => {
-            // 构造该层的数据点 (Z轴根据 layer_distance 偏移)
             const layerPoints = dataPoints.map(p => ({
                 ...p,
                 point_z: p.point_z + (layer.layer_distance || 0)
             }));
-
-            const mesh = createSolidLayer(
-                layerPoints,
-                layer.layer_depth || 10,
-                new THREE.Color(layer.layer_color),
-                center,
-                layer.layer_type === 1 ? 0.4 : 0.95 // 分析分区降低透明度 (0.4)，地质分区保持高透明度 (0.95)
-            );
+            const mesh = createSolidLayer(layerPoints, layer.layer_depth || 10, new THREE.Color(layer.layer_color), center, layer.layer_type === 1 ? 0.4 : 0.95);
             mesh.name = layer.layer_name;
             layerGroup.add(mesh);
         });
         scene.add(layerGroup);
 
-        // --- 绘制地层名称标注 ---
         if (activeLayers.length > 0) {
-            createLayerNames(
-                activeLayers,
-                bounds.minX - center.x,
-                bounds.minY - center.y,
-                dataPoints[0].point_z - center.z,
-                scene
-            );
+            createLayerNames(activeLayers, bounds.minX - center.x, bounds.minY - center.y, dataPoints[0].point_z - center.z, scene);
         }
 
-        // --- B. 绘制坐标轴 (AxesGroup) ---
+        // --- B. 绘制坐标轴 ---
         createBoxAxes(visualBounds, scene, center);
 
-        // --- C. 绘制微震事件 (EventsGroup) ---
+        // --- C. 绘制微震事件 ---
         if (events && events.length > 0) {
             createEventSpheres(events, scene, center);
         }
 
-        // --- D. 绘制指北针 ---
+        // --- D. 绘制独立场景中的 3D 指北针 ---
         if (compass) {
-            createCompass(compass.start, compass.end, scene, center);
+            // 在独立场景中，我们直接使用固定的大小 (scale: 60)
+            const compassLength = 60;
+            // center 传 {0,0,0} 告诉工具函数我们不想基于世界坐标偏移，想基于原点构建
+            createCompass(compass.start, compass.end, compassScene, { x: 0, y: 0, z: 0 }, compassLength);
         }
 
         // --- E. 相机视角重置 ---
@@ -353,12 +371,12 @@ const Scene: React.FC<SceneProps> = ({
             visualBounds.maxZ - visualBounds.minZ
         );
         const dist = maxDim * 1.5;
-        // 类似 CoalView 的相机位置 (斜侧上方)
-        camera.position.set(dist, -dist, dist * 0.8);
-        camera.lookAt(0, 0, 0);
-        controls.target.set(0, 0, 0);
-        controls.update();
-
+        if (cameraRef.current && controlsRef.current) {
+            cameraRef.current.position.set(dist, -dist, dist * 0.8);
+            cameraRef.current.lookAt(0, 0, 0);
+            controlsRef.current.target.set(0, 0, 0);
+            controlsRef.current.update();
+        }
     }, [dataPoints, bounds, visualBounds, center, events, activeLayers, compass, showAnalysis]);
 
     return (
