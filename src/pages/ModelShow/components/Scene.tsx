@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import dayjs from 'dayjs';
 import {
     createSolidLayer,
     createBoxAxes,
@@ -23,6 +24,7 @@ interface EventData {
     loc_z: number;
     magnitude: number;
     energy?: number;
+    time?: string;
 }
 
 interface LayerData {
@@ -280,6 +282,7 @@ const Scene: React.FC<SceneProps> = ({
                             content: (
                                 <>
                                     <div><b>微震事件</b></div>
+                                    {raw.time && <div>时间: {dayjs(raw.time).format('YYYY-MM-DD')}</div>}
                                     <div>震级: {raw.magnitude?.toFixed(2)}</div>
                                     <div>位置: {raw.loc_x?.toFixed(1)}, {raw.loc_y?.toFixed(1)}, {raw.loc_z?.toFixed(1)}</div>
                                 </>

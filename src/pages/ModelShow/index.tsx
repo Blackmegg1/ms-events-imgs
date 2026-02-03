@@ -3,6 +3,7 @@ import { getLayerList } from '@/services/layer/LayerController';
 import { getCompass, getModelList } from '@/services/model/ModelController';
 import { getPointList } from '@/services/point/PointController';
 import { getProjectDist } from '@/services/project/ProjectController';
+import { computerEvent } from '@/utils/pointSurfaceRegion';
 import { PageContainer } from '@ant-design/pro-components';
 import {
   Button,
@@ -43,6 +44,8 @@ interface Layers {
   layer_color: string;
   layer_name: string;
   layer_distance: number;
+  id: number;
+  layer_type?: number;
 }
 
 const ModelShow = () => {
@@ -58,6 +61,7 @@ const ModelShow = () => {
   const [fullModelList, setFullModelList] = useState<any[]>([]);
   const [csvData, setCsvData] = useState<any[]>([]);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisZones, setAnalysisZones] = useState<Layers[]>([]);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -116,6 +120,17 @@ const ModelShow = () => {
                     setModelArr(distArr);
                     if (distArr.length > 0) {
                       form.setFieldsValue({ model_id: distArr[0].value });
+                      // 同时获取该模型的分析分区
+                      try {
+                        const { list: layers } = await getLayerList({
+                          model_id: distArr[0].value,
+                        });
+                        setAnalysisZones(
+                          layers.filter((l: any) => l.layer_type === 1),
+                        );
+                      } catch (e) {
+                        console.error('获取分区预设失败', e);
+                      }
                     }
                   }}
                 />
@@ -133,6 +148,18 @@ const ModelShow = () => {
                   onChange={(checked) => setShowAnalysis(checked)}
                 />
               </Form.Item>
+              <Form.Item label="分析分区预设" name="analysis_zone">
+                <Select
+                  mode="multiple"
+                  placeholder="选择分析分区(可选)"
+                  style={{ width: 250 }}
+                  allowClear
+                  options={analysisZones.map((z) => ({
+                    label: z.layer_name,
+                    value: z.id,
+                  }))}
+                />
+              </Form.Item>
             </Space>
           </Row>
           <Row>
@@ -143,7 +170,16 @@ const ModelShow = () => {
 
               <Form.Item>
                 <Space>
-                  <Button>重置</Button>
+                  <Button
+                    onClick={() => {
+                      form.resetFields();
+                      setEvents([]);
+                      setPoints([]);
+                      setCsvData([]);
+                    }}
+                  >
+                    重置
+                  </Button>
                   <Button
                     type="primary"
                     onClick={async () => {
@@ -217,12 +253,50 @@ const ModelShow = () => {
                         );
                         const { list: eventList } = await getEventList({
                           current: 1,
-                          pageSize: 4000,
+                          pageSize: 999999, // 调大以获取完整数据进行筛选
                           timeBegin: formattedTimeRange?.[0] || null,
                           timeEnd: formattedTimeRange?.[1] || null,
                           project_id: params.project_id || null,
                         });
-                        setEvents(eventList);
+
+                        let finalEvents = eventList;
+                        // 如果选择了分析分区，进行筛选
+                        if (
+                          params.analysis_zone &&
+                          params.analysis_zone.length > 0
+                        ) {
+                          try {
+                            const allFilteredEvents = new Map();
+                            for (const zoneId of params.analysis_zone) {
+                              const zone = analysisZones.find(
+                                (z) => z.id === zoneId,
+                              );
+                              if (zone) {
+                                const filtered = await computerEvent(
+                                  params.project_id,
+                                  eventList,
+                                  zone.layer_distance - zone.layer_depth,
+                                  zone.layer_distance,
+                                );
+                                filtered.forEach((ev: any) => {
+                                  const key =
+                                    ev.event_key ||
+                                    ev.id ||
+                                    `${ev.loc_x}-${ev.loc_y}-${ev.loc_z}-${ev.time}`;
+                                  allFilteredEvents.set(key, ev);
+                                });
+                              }
+                            }
+                            finalEvents = Array.from(
+                              allFilteredEvents.values(),
+                            );
+                            message.info(`分区筛选后剩余 ${finalEvents.length} 个事件`);
+                          } catch (error: any) {
+                            message.warning(`筛选执行出错：${error.message}`);
+                          }
+                        }
+
+                        setEvents(finalEvents);
                       }
 
                       const { list: layers } = await getLayerList({
