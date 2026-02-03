@@ -8,7 +8,7 @@ export default defineConfig({
   request: {},
   hash: true,
   layout: {
-    title: '透明地质数据处理系统 v2.1',
+    title: '透明地质数据处理系统 v2.2',
   },
   routes: [
     {
