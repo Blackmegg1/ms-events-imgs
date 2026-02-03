@@ -18,7 +18,7 @@ interface UpdateItem {
 
 const updates: UpdateItem[] = [
     {
-    date: '2026-02-03',
+    date: '2026-02-06',
     title: 'V2.2 内容更新',
     description: ['优化采线功能，可直接在平面图中拾点构造采线','模型展示页面支持事件分层筛选','空间模型增加分层统计报表功能'],
   },
