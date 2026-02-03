@@ -87,6 +87,11 @@ export default defineConfig({
           path: '/spaceModel/show',
           component: './ModelShow',
         },
+        {
+          name: '分层统计报表',
+          path: '/spaceModel/statistics',
+          component: './SpaceModel/Statistics',
+        },
       ],
     },
     {
