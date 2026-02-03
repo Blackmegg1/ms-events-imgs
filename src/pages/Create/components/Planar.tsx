@@ -19,6 +19,9 @@ interface Iprops {
   highlightThreshold?: number;
   isHighlightEnabled?: boolean;
   highlightStyle?: 'red' | 'arrow';
+  onPointClick?: (coords: [number, number]) => void;
+  selectedPoints?: number[][];
+  isPicking?: boolean;
 }
 
 const Planar: React.FC<Iprops> = (props: Iprops) => {
@@ -40,6 +43,9 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     highlightThreshold = 2000,
     isHighlightEnabled = false,
     highlightStyle = 'red',
+    onPointClick,
+    selectedPoints = [],
+    isPicking = false,
   } = props;
 
   /* FIX: Use useRef instead of createRef */
@@ -282,12 +288,15 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     const today = new Date();
     const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
 
-    // ✅ 在第二个端点右下角绘制文字
+    // ✅ 在第二个端点右下方绘制文字，增加偏移避免遮挡
     ctx.font = 'bold 22px sans-serif';
     ctx.fillStyle = '#ff00ea';
-    ctx.textAlign = 'center';
+    ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText(dateStr, cx2, cy2 + 8); // 右下角偏移一点，避免遮挡线端
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 3;
+    ctx.strokeText(dateStr, cx2 + 10, cy2 + 10);
+    ctx.fillText(dateStr, cx2 + 10, cy2 + 10);
   }
 
   useEffect(() => {
@@ -359,6 +368,38 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
         if (props.norm_axis === 'z' && lineCoordinate?.length === 2) {
           drawLineSegment(canvas, ctx, lineCoordinate);
         }
+
+        // 绘制当前正在选择的点 (仅在拾取模式开启时显示)
+        if (ctx && isPicking && props.norm_axis === 'z' && selectedPoints && selectedPoints.length > 0) {
+          selectedPoints.forEach((pt, index) => {
+            if (pt.length === 2) {
+              const [x, y] = pt;
+              const wRatio = (canvas.width - left_margin) / state.width;
+              const hRatio = (canvas.height - top_margin) / state.height;
+              const cx = wRatio * (x - state.minx) + left_margin;
+              const cy = canvas.height - hRatio * (y - state.miny) + top_margin;
+
+              // 绘制指示器
+              ctx.beginPath();
+              ctx.shadowBlur = 10;
+              ctx.shadowColor = index === 0 ? '#52c41a' : '#1890ff';
+              ctx.fillStyle = index === 0 ? '#52c41a' : '#1890ff';
+              ctx.arc(cx, cy, 10, 0, 2 * Math.PI);
+              ctx.fill();
+              ctx.shadowBlur = 0; // 重置阴影
+              ctx.strokeStyle = '#fff';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+
+              // 绘制数字
+              ctx.fillStyle = '#fff';
+              ctx.font = 'bold 14px Arial';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText((index + 1).toString(), cx, cy);
+            }
+          });
+        }
       };
       img.src = `data:image/png;base64,${img_base64}`;
     }
@@ -373,6 +414,7 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
     const mouseY = event.clientY - rect.top;
 
     const targets = clickTargetsRef.current;
+    let eventClicked = false;
     for (const target of targets) {
       const { x, y, r, evt } = target;
       if (
@@ -382,8 +424,20 @@ const Planar: React.FC<Iprops> = (props: Iprops) => {
         message.info(
           `事件坐标:(${evt.loc_x},${evt.loc_y},${evt.loc_z}) 时间:${evt.time} 震级:${evt.magnitude}M 能量:${evt.energy}KJ`,
         );
-        return; // Only handle top-most (or first found) event
+        eventClicked = true;
+        break; // Only handle top-most (or first found) event
       }
+    }
+
+    // Convert mouse to real-world coordinates and callback
+    if (onPointClick && norm_axis === 'z') {
+      const wRatio = (canvas.width - left_margin) / state.width;
+      const hRatio = (canvas.height - top_margin) / state.height;
+
+      const realX = (mouseX - left_margin) / wRatio + state.minx;
+      const realY = (canvas.height + top_margin - mouseY) / hRatio + state.miny;
+
+      onPointClick([realX, realY]);
     }
   };
 

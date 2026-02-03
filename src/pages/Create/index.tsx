@@ -20,7 +20,9 @@ import {
   Checkbox,
   Radio,
   Switch,
+  Tooltip,
 } from 'antd';
+import { AimOutlined } from '@ant-design/icons';
 import { useForm } from 'antd/es/form/Form';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -39,7 +41,7 @@ const Create = () => {
   const [byMag, setByMag] = useState(1);
   const [form] = Form.useForm();
   const [createEventForm] = useForm();
-  const [lineCoordinate, setLineCoordinate] = useState<[number[]] | null>([[]]);
+  const [lineCoordinate, setLineCoordinate] = useState<[number[], number[]] | null>(null);
   const [createModalVisible, handleCreateVisible] = useState(false);
   const [highlightSettings, setHighlightSettings] = useState({
     threshold: 2000,
@@ -47,6 +49,30 @@ const Create = () => {
     style: 'red' as 'red' | 'arrow',
   });
   const [analysisZones, setAnalysisZones] = useState<any[]>([]);
+  const [selectedPoints, setSelectedPoints] = useState<number[][]>([]);
+  const [isPicking, setIsPicking] = useState(false);
+
+  const handlePointClick = (coords: [number, number]) => {
+    if (!isPicking) return;
+    setSelectedPoints((prev) => {
+      const newPoints = [...prev, [Math.round(coords[0]), Math.round(coords[1])]];
+      if (newPoints.length > 2) {
+        return [[Math.round(coords[0]), Math.round(coords[1])]]; // 重置为第一个点
+      }
+      if (newPoints.length === 2) {
+        // 自动更新表单
+        const p1 = newPoints[0];
+        const p2 = newPoints[1];
+        form.setFieldsValue({
+          line_coords: `[${p1[0]},${p1[1]}],[${p2[0]},${p2[1]}]`,
+        });
+        setLineCoordinate([p1, p2]); // 拾取两个点后立即在状态中设置坐标，触发实时渲染
+        message.success('已生成采线坐标，已自动关闭拾取功能');
+        setIsPicking(false);
+      }
+      return newPoints;
+    });
+  };
 
   useEffect(() => {
     async function fetchDist() {
@@ -344,7 +370,29 @@ const Create = () => {
                   },
                 ]}
               >
-                <Input placeholder="如：[100,200],[300,400]" />
+                <Input
+                  placeholder="拾取或输入如：[100,200],[300,400]"
+                  suffix={
+                    <Tooltip title={isPicking ? '点击关闭拾取' : '点击开启拾取'}>
+                      <AimOutlined
+                        style={{
+                          cursor: 'pointer',
+                          color: isPicking ? '#1890ff' : 'rgba(0,0,0,0.45)',
+                          fontSize: '18px',
+                        }}
+                        onClick={() => {
+                          const nextPicking = !isPicking;
+                          setIsPicking(nextPicking);
+                          if (nextPicking) {
+                            message.info('拾取已开启：请在XY平面图中点击两个点来生成采线');
+                            setSelectedPoints([]);
+                            setLineCoordinate(null); // 开启拾取时清除旧的采线坐标
+                          }
+                        }}
+                      />
+                    </Tooltip>
+                  }
+                />
               </Form.Item>
             </Col>
             <Col span={5}>
@@ -374,6 +422,7 @@ const Create = () => {
                       setImgList([]);
                       setEventList([]);
                       setLineCoordinate(null);
+                      setSelectedPoints([]);
                     }}
                   >
                     重置
@@ -406,7 +455,7 @@ const Create = () => {
                                 pair.every((n) => !isNaN(n)),
                             )
                           ) {
-                            setLineCoordinate(parsed);
+                            setLineCoordinate(parsed as [number[], number[]]);
                           } else {
                             message.error('采线坐标格式错误');
                           }
@@ -474,6 +523,9 @@ const Create = () => {
                     highlightThreshold={highlightSettings.threshold}
                     isHighlightEnabled={highlightSettings.enabled}
                     highlightStyle={highlightSettings.style}
+                    onPointClick={handlePointClick}
+                    selectedPoints={selectedPoints}
+                    isPicking={isPicking}
                   />
                   <div style={{ maxHeight: '300px' }}>
                     <ColorScale title="微震震级(M)" />
