@@ -258,7 +258,9 @@ const Event: React.FC = () => {
             getPointList({ model_id: modelId }),
           ]);
 
-          layers = layerResponse?.list || [];
+          layers = (layerResponse?.list || []).filter(
+            (l: any) => l.layer_type === 1,
+          );
           modelPoints = pointResponse?.list || [];
 
           if (modelPoints.length >= 3) {
