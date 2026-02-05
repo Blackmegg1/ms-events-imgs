@@ -111,7 +111,7 @@ const Statistics: React.FC = () => {
                 let curr = dayjs(formattedTimeRange[0]);
                 const end = dayjs(formattedTimeRange[1]);
                 while (curr.isBefore(end) || curr.isSame(end, 'day')) {
-                    dateTrendMap[curr.format('MM-DD')] = 0;
+                    dateTrendMap[curr.format('YYYY-MM-DD')] = 0;
                     curr = curr.add(1, 'day');
                 }
             }
@@ -155,7 +155,7 @@ const Statistics: React.FC = () => {
                         processedEventKeys.add(key);
 
                         // 趋势
-                        const d = dayjs(ev.time).format('MM-DD');
+                        const d = dayjs(ev.time).format('YYYY-MM-DD');
                         if (dateTrendMap[d] !== undefined) dateTrendMap[d]++;
                         else dateTrendMap[d] = 1;
 
@@ -167,9 +167,9 @@ const Statistics: React.FC = () => {
                 });
             }
 
-            const trendArray = Object.keys(dateTrendMap).sort().map(date => ({
-                date,
-                count: dateTrendMap[date]
+            const trendArray = Object.keys(dateTrendMap).sort().map(dateValue => ({
+                date: dayjs(dateValue).format('MM-DD'),
+                count: dateTrendMap[dateValue]
             }));
 
             const days = trendArray.length || 1;
