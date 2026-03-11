@@ -69,7 +69,7 @@ const Statistics: React.FC = () => {
         setLoading(true);
         try {
             // 1. 获取层位/分区列表
-            const { list: layers } = await getLayerList({ model_id });
+            const { list: layers } = await getLayerList({ model_id, pageSize: 1000 });
             const zones = layers.filter((l: any) => l.layer_type === 1);
 
             if (zones.length === 0) {

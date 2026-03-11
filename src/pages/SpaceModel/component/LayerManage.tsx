@@ -64,7 +64,7 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
   const fetchLayerList = async () => {
     try {
       setLoading(true);
-      const response = await getLayerList({ model_id: currentRecord.model_id });
+      const response = await getLayerList({ model_id: currentRecord.model_id, pageSize: 1000 });
       setDataSource(response.list);
     } catch (error) {
       console.error('获取图层列表失败:', error);

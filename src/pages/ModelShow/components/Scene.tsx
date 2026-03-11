@@ -68,6 +68,16 @@ const Scene: React.FC<SceneProps> = ({
     });
 
     const [isLegendCollapsed, setIsLegendCollapsed] = useState(false);
+    const [hiddenLayerNames, setHiddenLayerNames] = useState<Set<string>>(new Set());
+
+    const toggleLayerVisibility = (name: string) => {
+        setHiddenLayerNames(prev => {
+            const next = new Set(prev);
+            if (next.has(name)) next.delete(name);
+            else next.add(name);
+            return next;
+        });
+    };
 
     // 1. 数据预处理：合并 csvData 和 points，并计算包围盒与中心点
     const { dataPoints, bounds, center } = useMemo(() => {
@@ -343,12 +353,14 @@ const Scene: React.FC<SceneProps> = ({
             }));
             const mesh = createSolidLayer(layerPoints, layer.layer_depth || 10, new THREE.Color(layer.layer_color), center, layer.layer_type === 1 ? 0.4 : 0.95);
             mesh.name = layer.layer_name;
+            mesh.visible = !hiddenLayerNames.has(layer.layer_name);
             layerGroup.add(mesh);
         });
         scene.add(layerGroup);
 
         if (activeLayers.length > 0) {
-            createLayerNames(activeLayers, bounds.minX - center.x, bounds.minY - center.y, dataPoints[0].point_z - center.z, scene);
+            const visibleLayers = activeLayers.filter(l => !hiddenLayerNames.has(l.layer_name));
+            createLayerNames(visibleLayers, bounds.minX - center.x, bounds.minY - center.y, dataPoints[0].point_z - center.z, scene);
         }
 
         // --- B. 绘制坐标轴 ---
@@ -380,7 +392,7 @@ const Scene: React.FC<SceneProps> = ({
             controlsRef.current.target.set(0, 0, 0);
             controlsRef.current.update();
         }
-    }, [dataPoints, bounds, visualBounds, center, events, activeLayers, compass, showAnalysis]);
+    }, [dataPoints, bounds, visualBounds, center, events, activeLayers, compass, showAnalysis, hiddenLayerNames]);
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -437,14 +449,29 @@ const Scene: React.FC<SceneProps> = ({
                     {!isLegendCollapsed && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '4px' }}>
                             {legendData.map((item, index) => (
-                                <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+                                <div
+                                    key={index}
+                                    onClick={() => toggleLayerVisibility(item.name)}
+                                    title={hiddenLayerNames.has(item.name) ? "点击显示地层" : "点击隐藏地层"}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        fontSize: '13px',
+                                        cursor: 'pointer',
+                                        opacity: hiddenLayerNames.has(item.name) ? 0.4 : 1,
+                                        transition: 'all 0.2s ease',
+                                        padding: '2px 0'
+                                    }}
+                                >
                                     <div style={{
                                         width: '12px',
                                         height: '12px',
                                         backgroundColor: item.color,
                                         borderRadius: '50%',
                                         boxShadow: '0 0 4px rgba(0,0,0,0.2)',
-                                        flexShrink: 0
+                                        flexShrink: 0,
+                                        border: hiddenLayerNames.has(item.name) ? '1px solid #999' : 'none'
                                     }} />
                                     <span style={{
                                         color: '#262626',
@@ -452,7 +479,8 @@ const Scene: React.FC<SceneProps> = ({
                                         flex: 1,
                                         whiteSpace: 'nowrap',
                                         overflow: 'hidden',
-                                        textOverflow: 'ellipsis'
+                                        textOverflow: 'ellipsis',
+                                        textDecoration: hiddenLayerNames.has(item.name) ? 'line-through' : 'none'
                                     }}>
                                         {item.name}
                                     </span>
@@ -460,10 +488,11 @@ const Scene: React.FC<SceneProps> = ({
                                         fontWeight: 700,
                                         color: '#000',
                                         fontFamily: '"SF Mono", "Monaco", "Consolas", monospace',
-                                        fontSize: '12px',
+                                        fontSize: '11px',
                                         backgroundColor: 'rgba(0,0,0,0.05)',
                                         padding: '1px 4px',
-                                        borderRadius: '3px'
+                                        borderRadius: '3px',
+                                        opacity: 0.8
                                     }}>
                                         {item.range}m
                                     </span>
