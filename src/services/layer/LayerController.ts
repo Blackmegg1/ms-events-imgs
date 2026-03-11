@@ -10,6 +10,7 @@ export function getLayerList(params: {
   return request('/api/layer/list', {
     method: 'GET',
     params,
+    pageSize: 1000
   });
 }
 
