@@ -1,6 +1,6 @@
-﻿import React from 'react';
+import React, { useState } from 'react';
 import { Layout, Typography, Timeline } from 'antd';
-import { ScheduleOutlined } from '@ant-design/icons';
+import { ScheduleOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import styles from './Guide.less';
 
 const { Title, Paragraph } = Typography;
@@ -17,7 +17,16 @@ interface UpdateItem {
 }
 
 const updates: UpdateItem[] = [
-    {
+  {
+    date: '2026-03-26',
+    title: 'V2.3 内容更新',
+    description: [
+      '分层统计报表新增最大发育高度、深度统计',
+      '修复层位数据丢失、图层显示及时间轴相关问题',
+      '优化层位管理交互体验',
+    ],
+  },
+  {
     date: '2026-02-06',
     title: 'V2.2 内容更新',
     description: ['优化采线功能，可直接在平面图中拾点构造采线','模型展示页面支持事件分层筛选','空间模型增加分层统计报表功能'],
@@ -40,6 +49,11 @@ const updates: UpdateItem[] = [
 ];
 
 const Guide: React.FC<Props> = ({ name }) => {
+  const [expanded, setExpanded] = useState(false);
+  const showCount = 2; // 默认显示的版本数量
+  const hasMore = updates.length > showCount;
+  const displayedUpdates = expanded ? updates : updates.slice(0, showCount);
+
   return (
     <div className={styles.container}>
       <div className={styles.cardContent}>
@@ -49,8 +63,13 @@ const Guide: React.FC<Props> = ({ name }) => {
         <Paragraph>以下为近期功能更新：</Paragraph>
 
         <Timeline mode="left" className={styles.timeline}>
-          {updates.map((item, idx) => (
-            <Timeline.Item label={item.date} key={idx}>
+          {displayedUpdates.map((item, idx) => (
+            <Timeline.Item 
+              label={item.date} 
+              key={idx}
+              color={idx === 0 ? 'blue' : 'gray'}
+              style={{ paddingBottom: 24 }}
+            >
               <strong style={{ fontSize: 16 }}>
                 {item.icon} {item.title}
               </strong>
@@ -68,6 +87,32 @@ const Guide: React.FC<Props> = ({ name }) => {
             </Timeline.Item>
           ))}
         </Timeline>
+
+        {hasMore && (
+          <div style={{ textAlign: 'center', marginTop: -16 }}>
+            <span 
+              onClick={() => setExpanded(!expanded)} 
+              style={{ 
+                color: '#1677ff', 
+                cursor: 'pointer',
+                fontSize: 14,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '8px 16px',
+                borderRadius: 4,
+                transition: 'background 0.3s'
+              }}
+              className={styles.expandBtn}
+            >
+              {expanded ? (
+                <>收起历史版本 <UpOutlined /></>
+              ) : (
+                <>查看更早的历史版本 <DownOutlined /></>
+              )}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
