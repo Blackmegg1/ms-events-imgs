@@ -70,25 +70,25 @@ function interpolateZ(x, y, triangle) {
     return l1 * a.z + l2 * b.z + l3 * c.z;
 }
 
+
 /**
- * 层位切片主函数：计算处于指定地层范围内的事件
+ * 获取事件相对于基准面的 Z 值 (偏移量)
  * @param {number} project_id 项目ID
- * @param {Array} events 待筛选的微震事件列表
- * @param {number} bottomZ 底板偏移量
- * @param {number} topZ 顶板偏移量
+ * @param {Array} events 待计算的微震事件列表
+ * @returns {Array} 带有 relative_z (ev.z - ref_z) 的事件映射
  */
-export async function computerEvent(project_id, events, bottomZ, topZ) {
+export async function getEventRelativeZ(project_id, events) {
     try {
         if (!events || events.length === 0) return [];
 
         const { list: modelList } = await getModelList({ project_id });
-        if (!modelList || modelList.length === 0) throw new Error('未配置工作面模型！');
+        if (!modelList || modelList.length === 0) return [];
 
         const model_id = modelList[modelList.length - 1].model_id;
         const { list: points } = await getPointList({ model_id });
-        if (points.length < 3) throw new Error('模型基准点位过少！');
+        if (points.length < 3) return [];
 
-        // 1. 初始化三角剖分 (仅计算一次)
+        // 1. 初始化三角剖分
         const coords = new Float64Array(points.length * 2);
         for (let i = 0; i < points.length; i++) {
             coords[i * 2] = points[i].point_x;
@@ -96,7 +96,6 @@ export async function computerEvent(project_id, events, bottomZ, topZ) {
         }
         const delaunay = new Delaunay(coords);
 
-        // 2. 构建点到三角形的索引映射 (用于快速定位)
         const pointToTriangles = new Array(points.length);
         for (let i = 0; i < points.length; i++) pointToTriangles[i] = [];
 
@@ -107,18 +106,59 @@ export async function computerEvent(project_id, events, bottomZ, topZ) {
             pointToTriangles[pIdx].push(tIdx);
         }
 
-        // 3. 准备插值所需的曲面数据
-        const surface1 = points.map(p => ({ x: p.point_x, y: p.point_y, z: p.point_z + bottomZ }));
-        const surface2 = points.map(p => ({ x: p.point_x, y: p.point_y, z: p.point_z + topZ }));
+        const surfacePoints = points.map(p => ({ x: p.point_x, y: p.point_y, z: p.point_z }));
 
-        // 4. 批量筛选事件
-        const filtered = events.filter(ev => {
-            const q = { x: ev.loc_x, y: ev.loc_y, z: ev.loc_z };
-            return fastCheckPointInRegion(q, surface1, surface2, delaunay, pointToTriangles);
+        return events.map(ev => {
+            const { loc_x, loc_y, loc_z } = ev;
+            
+            // 找到最近的基准点
+            const pIndex = delaunay.find(loc_x, loc_y);
+            if (pIndex === -1) return { ...ev, relative_z: null };
+
+            const triangleIndices = pointToTriangles[pIndex];
+            if (!triangleIndices) return { ...ev, relative_z: null };
+
+            let refZ = null;
+            for (const tIdx of triangleIndices) {
+                const i0 = delaunay.triangles[tIdx * 3];
+                const i1 = delaunay.triangles[tIdx * 3 + 1];
+                const i2 = delaunay.triangles[tIdx * 3 + 2];
+                const tri = [surfacePoints[i0], surfacePoints[i1], surfacePoints[i2]];
+
+                if (pointInTriangle(loc_x, loc_y, tri)) {
+                    refZ = interpolateZ(loc_x, loc_y, tri);
+                    break;
+                }
+            }
+
+            return {
+                ...ev,
+                relative_z: refZ !== null ? (loc_z - refZ) : null
+            };
         });
+    } catch (error) {
+        console.error('获取事件相对高度失败:', error);
+        return events.map(ev => ({ ...ev, relative_z: null }));
+    }
+}
 
-        console.log(`[HorizonSlice] 处理完成。输入: ${events.length}, 输出: ${filtered.length}, 基准点数: ${points.length}`);
-        return filtered;
+/**
+ * 层位切片主函数：计算处于指定地层范围内的事件
+ * @param {number} project_id 项目ID
+ * @param {Array} events 待筛选的微震事件列表
+ * @param {number} bottomZ 底板偏移量
+ * @param {number} topZ 顶板偏移量
+ */
+export async function computerEvent(project_id, events, bottomZ, topZ) {
+    try {
+        if (!events || events.length === 0) return [];
+        
+        const relEvents = await getEventRelativeZ(project_id, events);
+        
+        return relEvents.filter(ev => {
+            if (ev.relative_z === null) return false;
+            return ev.relative_z >= bottomZ && ev.relative_z <= topZ;
+        });
 
     } catch (error) {
         console.error('事件分层切片计算失败:', error.message);

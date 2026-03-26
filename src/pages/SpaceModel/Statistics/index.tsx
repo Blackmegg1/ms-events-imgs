@@ -2,7 +2,7 @@ import { getEventList } from '@/services/event/EventController';
 import { getLayerList } from '@/services/layer/LayerController';
 import { getModelList } from '@/services/model/ModelController';
 import { getActiveProject } from '@/services/project/ProjectController';
-import { computerEvent } from '@/utils/pointSurfaceRegion';
+import { computerEvent, getEventRelativeZ } from '@/utils/pointSurfaceRegion';
 import { PageContainer } from '@ant-design/pro-components';
 import {
     Button,
@@ -17,7 +17,9 @@ import {
     message,
     Statistic,
     Divider,
+    Tooltip,
 } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import React, { useEffect, useState, useRef } from 'react';
 import * as echarts from 'echarts';
@@ -27,11 +29,20 @@ const { RangePicker } = DatePicker;
 const Statistics: React.FC = () => {
     const [projectArr, setProjectArr] = useState<any[]>([]);
     const [modelArr, setModelArr] = useState<any[]>([]);
+    const [layerOptions, setLayerOptions] = useState<any[]>([]);
     const [statsData, setStatsData] = useState<any[]>([]);
     const [trendData, setTrendData] = useState<any[]>([]);
     const [magStats, setMagStats] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    const [summary, setSummary] = useState({ totalCount: 0, totalEnergy: 0, avgDaily: 0 });
+    const [summary, setSummary] = useState({
+        totalCount: 0,
+        totalEnergy: 0,
+        avgDaily: 0,
+        maxHeight: 0,
+        maxDepth: 0,
+        maxHeightPos: '',
+        maxDepthPos: ''
+    });
     const [form] = Form.useForm();
 
     useEffect(() => {
@@ -47,7 +58,8 @@ const Statistics: React.FC = () => {
     }, []);
 
     const handleProjectChange = async (projectId: number) => {
-        form.setFieldsValue({ model_id: null });
+        form.setFieldsValue({ model_id: null, ref_layer_id: null });
+        setLayerOptions([]);
         const response = await getModelList({ project_id: projectId });
         const modelList = response.list;
         const distArr = modelList.map((model: any) => ({
@@ -56,13 +68,32 @@ const Statistics: React.FC = () => {
         }));
         setModelArr(distArr);
         if (distArr.length > 0) {
-            form.setFieldsValue({ model_id: distArr[distArr.length - 1].value });
+            const lastModelId = distArr[distArr.length - 1].value;
+            form.setFieldsValue({ model_id: lastModelId });
+            handleModelChange(lastModelId);
+        }
+    };
+
+    const handleModelChange = async (modelId: number) => {
+        form.setFieldsValue({ ref_layer_id: null });
+        const { list: layers } = await getLayerList({ model_id: modelId });
+        const options = layers.map((l: any) => ({
+            value: l.id,
+            label: l.layer_name,
+            original: l
+        }));
+        setLayerOptions(options);
+
+        // 默认尝试匹配“煤层”
+        const coal = options.find((o: any) => o.label.includes('煤层'));
+        if (coal) {
+            form.setFieldsValue({ ref_layer_id: coal.value });
         }
     };
 
     const runAnalysis = async () => {
         const values = await form.validateFields();
-        const { project_id, model_id, timeRage } = values;
+        const { project_id, model_id, timeRage, ref_layer_id } = values;
 
         if (!project_id || !model_id) return;
 
@@ -94,7 +125,7 @@ const Statistics: React.FC = () => {
             if (!allEvents || allEvents.length === 0) {
                 message.info('当前条件下未找到微震事件');
                 setStatsData([]);
-                setSummary({ totalCount: 0, totalEnergy: 0, avgDaily: 0 });
+                setSummary({ totalCount: 0, totalEnergy: 0, avgDaily: 0, maxHeight: 0, maxDepth: 0, maxHeightPos: '', maxDepthPos: '' });
                 setLoading(false);
                 return;
             }
@@ -119,10 +150,11 @@ const Statistics: React.FC = () => {
             // 准备震级分布
             const magBins = [
                 { label: '< 0', count: 0, min: -Infinity, max: 0 },
-                { label: '0 ~ 1', count: 0, min: 0, max: 1 },
-                { label: '1 ~ 2', count: 0, min: 1, max: 2 },
-                { label: '2 ~ 3', count: 0, min: 2, max: 3 },
-                { label: '> 3', count: 0, min: 3, max: Infinity },
+                { label: '0 ~ 0.2', count: 0, min: 0, max: 0.2 },
+                { label: '0.2 ~ 0.5', count: 0, min: 0.2, max: 0.5 },
+                { label: '0.5 ~ 1.0', count: 0, min: 0.5, max: 1.0 },
+                { label: '1.0 ~ 2.0', count: 0, min: 1.0, max: 2.0 },
+                { label: '> 2.0', count: 0, min: 2.0, max: Infinity },
             ];
 
             const processedEventKeys = new Set();
@@ -167,6 +199,44 @@ const Statistics: React.FC = () => {
                 });
             }
 
+            // 4. 计算最大发育高度/深度
+            const relEvents = await getEventRelativeZ(project_id, allEvents);
+            const coalLayer = layerOptions.find((o: any) => o.value === ref_layer_id)?.original;
+
+            let maxHeight = 0;
+            let maxDepth = 0;
+            const summaryData: any = {};
+
+            if (coalLayer) {
+                const roofDist = coalLayer.layer_distance;
+                const floorDist = coalLayer.layer_distance - coalLayer.layer_depth;
+
+                let hMaxEvent: any = null;
+                let dMaxEvent: any = null;
+
+                relEvents.forEach((ev: any) => {
+                    if (ev.relative_z !== null) {
+                        const h = ev.relative_z - roofDist;
+                        const d = floorDist - ev.relative_z;
+                        if (h > maxHeight) {
+                            maxHeight = h;
+                            hMaxEvent = ev;
+                        }
+                        if (d > maxDepth) {
+                            maxDepth = d;
+                            dMaxEvent = ev;
+                        }
+                    }
+                });
+
+                if (hMaxEvent) {
+                    summaryData.maxHeightPos = `位置: (${hMaxEvent.loc_x.toFixed(1)}, ${hMaxEvent.loc_y.toFixed(1)}, ${hMaxEvent.loc_z.toFixed(1)})`;
+                }
+                if (dMaxEvent) {
+                    summaryData.maxDepthPos = `位置: (${dMaxEvent.loc_x.toFixed(1)}, ${dMaxEvent.loc_y.toFixed(1)}, ${dMaxEvent.loc_z.toFixed(1)})`;
+                }
+            }
+
             const trendArray = Object.keys(dateTrendMap).sort().map(dateValue => ({
                 date: dayjs(dateValue).format('MM-DD'),
                 count: dateTrendMap[dateValue]
@@ -180,7 +250,11 @@ const Statistics: React.FC = () => {
             setSummary({
                 totalCount: processedEventKeys.size,
                 totalEnergy: Number(totalEnergy.toFixed(2)),
-                avgDaily: Number((processedEventKeys.size / days).toFixed(2))
+                avgDaily: Number((processedEventKeys.size / days).toFixed(2)),
+                maxHeight: Number(maxHeight.toFixed(2)),
+                maxDepth: Number(maxDepth.toFixed(2)),
+                maxHeightPos: summaryData.maxHeightPos || '',
+                maxDepthPos: summaryData.maxDepthPos || ''
             });
             message.success('统计分析完成');
         } catch (error) {
@@ -286,44 +360,87 @@ const Statistics: React.FC = () => {
 
     return (
         <PageContainer title="分层统计报表">
-            <Card bodyStyle={{ padding: '16px' }} style={{ marginBottom: 16 }}>
-                <Form form={form} layout="inline">
-                    <Form.Item label="项目" name="project_id" rules={[{ required: true }]}>
-                        <Select options={projectArr} style={{ width: 200 }} onChange={handleProjectChange} />
-                    </Form.Item>
-                    <Form.Item label="模型" name="model_id" rules={[{ required: true }]}>
-                        <Select options={modelArr} style={{ width: 200 }} />
-                    </Form.Item>
-                    <Form.Item label="时间段" name="timeRage">
-                        <RangePicker />
-                    </Form.Item>
-                    <Form.Item>
-                        <Button type="primary" onClick={runAnalysis} loading={loading}>
-                            生成报表
-                        </Button>
-                    </Form.Item>
+            <Card bodyStyle={{ padding: '24px 24px 0 24px' }} style={{ marginBottom: 16 }}>
+                <Form form={form} layout="vertical">
+                    <Row gutter={24} align="bottom">
+                        <Col xs={24} sm={12} md={6} lg={4}>
+                            <Form.Item label="项目名称" name="project_id" rules={[{ required: true }]}>
+                                <Select options={projectArr} style={{ width: '100%' }} onChange={handleProjectChange} placeholder="请选择项目" />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={6} lg={4}>
+                            <Form.Item label="模型选择" name="model_id" rules={[{ required: true }]}>
+                                <Select options={modelArr} style={{ width: '100%' }} onChange={handleModelChange} placeholder="请选择模型" />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={6} lg={4}>
+                            <Form.Item label="标定层位" name="ref_layer_id" tooltip="作为高度与深度统计的参考层">
+                                <Select options={layerOptions} style={{ width: '100%' }} placeholder="选择参考层位" allowClear />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={10} lg={6}>
+                            <Form.Item label="时间范围" name="timeRage">
+                                <RangePicker style={{ width: '100%' }} />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={24} md={4} lg={4}>
+                            <Form.Item>
+                                <Button type="primary" onClick={runAnalysis} loading={loading} block>
+                                    生成报表
+                                </Button>
+                            </Form.Item>
+                        </Col>
+                    </Row>
                 </Form>
             </Card>
 
             {statsData.length > 0 && (
                 <>
                     <Row gutter={16} style={{ marginBottom: 16 }}>
-                        <Col span={6}>
+                        <Col span={4}>
                             <Card bordered={false}>
                                 <Statistic title="总计频次" value={summary.totalCount} suffix="次" valueStyle={{ color: '#1890ff' }} />
                             </Card>
                         </Col>
-                        <Col span={6}>
+                        <Col span={5}>
+                            <Card bordered={false}>
+                                <Tooltip title={summary.maxHeightPos || '无数据'}>
+                                    <Statistic
+                                        title={
+                                            <Space>
+                                                最大发育高度
+                                                <Tooltip title="相对于标定层位顶板的垂直距离">
+                                                    <InfoCircleOutlined style={{ fontSize: '14px', color: '#999', cursor: 'help' }} />
+                                                </Tooltip>
+                                            </Space>
+                                        }
+                                        value={summary.maxHeight}
+                                        suffix="m"
+                                        precision={2}
+                                        valueStyle={{ color: '#cf1322', cursor: 'pointer' }}
+                                    />
+                                </Tooltip>
+                            </Card>
+                        </Col>
+                        <Col span={5}>
+                            <Card bordered={false}>
+                                <Tooltip title={summary.maxDepthPos || '无数据'}>
+                                    <Statistic
+                                        title="最大发育深度"
+                                        value={summary.maxDepth}
+                                        suffix="m"
+                                        precision={2}
+                                        valueStyle={{ color: '#3f51b5', cursor: 'pointer' }}
+                                    />
+                                </Tooltip>
+                            </Card>
+                        </Col>
+                        <Col span={5}>
                             <Card bordered={false}>
                                 <Statistic title="日均频次" value={summary.avgDaily} suffix="次/天" />
                             </Card>
                         </Col>
-                        <Col span={6}>
-                            <Card bordered={false}>
-                                <Statistic title="分析分区数" value={statsData.length} />
-                            </Card>
-                        </Col>
-                        <Col span={6}>
+                        <Col span={5}>
                             <Card bordered={false}>
                                 <Statistic title="累计能量" value={summary.totalEnergy} suffix="KJ" precision={1} />
                             </Card>
