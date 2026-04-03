@@ -33,6 +33,7 @@ const Statistics: React.FC = () => {
     const [statsData, setStatsData] = useState<any[]>([]);
     const [trendData, setTrendData] = useState<any[]>([]);
     const [magStats, setMagStats] = useState<any[]>([]);
+    const [variationData, setVariationData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [summary, setSummary] = useState({
         totalCount: 0,
@@ -137,12 +138,21 @@ const Statistics: React.FC = () => {
 
             // 准备趋势数据映射
             const dateTrendMap: Record<string, number> = {};
+            const dateVariationMap: Record<string, any> = {};
+
             // 如果有时间范围，初始化所有日期
             if (formattedTimeRange?.[0] && formattedTimeRange?.[1]) {
                 let curr = dayjs(formattedTimeRange[0]);
                 const end = dayjs(formattedTimeRange[1]);
                 while (curr.isBefore(end) || curr.isSame(end, 'day')) {
-                    dateTrendMap[curr.format('YYYY-MM-DD')] = 0;
+                    const dStr = curr.format('YYYY-MM-DD');
+                    dateTrendMap[dStr] = 0;
+                    dateVariationMap[dStr] = {
+                        roofCount: 0,
+                        maxHeight: 0,
+                        floorCount: 0,
+                        maxDepth: 0
+                    };
                     curr = curr.add(1, 'day');
                 }
             }
@@ -215,16 +225,39 @@ const Statistics: React.FC = () => {
                 let dMaxEvent: any = null;
 
                 relEvents.forEach((ev: any) => {
+                    const dStr = dayjs(ev.time).format('YYYY-MM-DD');
+                    if (!dateVariationMap[dStr]) {
+                        dateVariationMap[dStr] = {
+                            roofCount: 0,
+                            maxHeight: 0,
+                            floorCount: 0,
+                            maxDepth: 0
+                        };
+                    }
                     if (ev.relative_z !== null) {
                         const h = ev.relative_z - roofDist;
                         const d = floorDist - ev.relative_z;
-                        if (h > maxHeight) {
-                            maxHeight = h;
-                            hMaxEvent = ev;
+
+                        if (h > 0) {
+                            dateVariationMap[dStr].roofCount++;
+                            if (h > dateVariationMap[dStr].maxHeight) {
+                                dateVariationMap[dStr].maxHeight = Number(h.toFixed(2));
+                            }
+                            if (h > maxHeight) {
+                                maxHeight = h;
+                                hMaxEvent = ev;
+                            }
                         }
-                        if (d > maxDepth) {
-                            maxDepth = d;
-                            dMaxEvent = ev;
+
+                        if (d > 0) {
+                            dateVariationMap[dStr].floorCount++;
+                            if (d > dateVariationMap[dStr].maxDepth) {
+                                dateVariationMap[dStr].maxDepth = Number(d.toFixed(2));
+                            }
+                            if (d > maxDepth) {
+                                maxDepth = d;
+                                dMaxEvent = ev;
+                            }
                         }
                     }
                 });
@@ -247,10 +280,14 @@ const Statistics: React.FC = () => {
             setStatsData(results);
             setTrendData(trendArray);
             setMagStats(magBins);
+            setVariationData(Object.keys(dateVariationMap).sort().map(d => ({
+                date: dayjs(d).format('MM-DD'),
+                ...dateVariationMap[d]
+            })));
             setSummary({
                 totalCount: processedEventKeys.size,
                 totalEnergy: Number(totalEnergy.toFixed(2)),
-                avgDaily: Number((processedEventKeys.size / days).toFixed(2)),
+                avgDaily: Math.round(processedEventKeys.size / days),
                 maxHeight: Number(maxHeight.toFixed(2)),
                 maxDepth: Number(maxDepth.toFixed(2)),
                 maxHeightPos: summaryData.maxHeightPos || '',
@@ -319,6 +356,91 @@ const Statistics: React.FC = () => {
         }]
     });
 
+    const getVariationOption = () => ({
+        title: { text: '微震事件连续变化趋势', left: 'center', textStyle: { fontSize: 15, fontWeight: 'bold' } },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'cross', lineStyle: { color: '#999', type: 'dashed' } },
+            backgroundColor: 'rgba(255, 255, 255, 0.85)',
+            borderColor: 'rgba(200, 200, 200, 0.5)',
+            borderWidth: 1,
+            textStyle: { color: '#333', fontSize: 13 },
+            extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.12); backdrop-filter: blur(6px); border-radius: 8px;'
+        },
+        toolbox: {
+            feature: {
+                saveAsImage: { show: true, title: '导出图片' }
+            },
+            right: '2%',
+            top: '2%'
+        },
+        legend: {
+            data: ['顶板事件数', '微震事件最大发育高度 (m)', '底板事件数', '微震事件最大发育深度 (m)'],
+            bottom: 0,
+            itemGap: 24,
+            textStyle: { color: '#666' }
+        },
+        grid: { top: '18%', bottom: '15%', left: '5%', right: '5%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: variationData.map(d => d.date),
+            axisLine: { lineStyle: { color: '#ccc' } },
+            axisLabel: { color: '#8c8c8c' }
+        },
+        yAxis: [
+            {
+                type: 'value',
+                name: '频次 (次)',
+                position: 'left',
+                splitLine: { lineStyle: { type: 'dashed', color: '#eee' } },
+                splitArea: { show: true, areaStyle: { color: ['rgba(250,250,250,0.1)', 'rgba(200,200,200,0.05)'] } }
+            },
+            {
+                type: 'value',
+                name: '高度/深度 (m)',
+                position: 'right',
+                splitLine: { show: false }
+            }
+        ],
+        series: [
+            {
+                name: '顶板事件数',
+                type: 'line',
+                data: variationData.map(d => d.roofCount),
+                smooth: false,
+                itemStyle: { color: '#f5222d' },
+                lineStyle: { width: 3, type: 'solid' }
+            },
+            {
+                name: '微震事件最大发育高度 (m)',
+                type: 'line',
+                yAxisIndex: 1,
+                data: variationData.map(d => d.maxHeight),
+                smooth: false,
+                itemStyle: { color: '#fa8c16' },
+                lineStyle: { width: 2, type: 'dashed' }
+            },
+            {
+                name: '底板事件数',
+                type: 'line',
+                data: variationData.map(d => d.floorCount),
+                smooth: false,
+                itemStyle: { color: '#1890ff' },
+                lineStyle: { width: 3, type: 'solid' }
+            },
+            {
+                name: '微震事件最大发育深度 (m)',
+                type: 'line',
+                yAxisIndex: 1,
+                data: variationData.map(d => d.maxDepth),
+                smooth: false,
+                itemStyle: { color: '#52c41a' },
+                lineStyle: { width: 2, type: 'dashed' }
+            }
+        ]
+    });
+
     const EChartComponent = ({ option, style }: { option: any, style: any }) => {
         const chartRef = useRef<HTMLDivElement>(null);
         const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -356,6 +478,14 @@ const Statistics: React.FC = () => {
             key: 'countPct',
             render: (record: any) => summary.totalCount > 0 ? ((record.count / summary.totalCount) * 100).toFixed(1) + '%' : '0%'
         },
+    ];
+
+    const variationColumns = [
+        { title: '日期', dataIndex: 'date', key: 'date' },
+        { title: '顶板事件数 (次)', dataIndex: 'roofCount', key: 'roofCount', sorter: (a: any, b: any) => a.roofCount - b.roofCount },
+        { title: '最大发育高度 (m)', dataIndex: 'maxHeight', key: 'maxHeight', sorter: (a: any, b: any) => a.maxHeight - b.maxHeight },
+        { title: '底板事件数 (次)', dataIndex: 'floorCount', key: 'floorCount', sorter: (a: any, b: any) => a.floorCount - b.floorCount },
+        { title: '最大发育深度 (m)', dataIndex: 'maxDepth', key: 'maxDepth', sorter: (a: any, b: any) => a.maxDepth - b.maxDepth },
     ];
 
     return (
@@ -456,6 +586,14 @@ const Statistics: React.FC = () => {
                         <Col span={8}>
                             <Card title="震级分布 (频次)" bordered={false}>
                                 <EChartComponent option={getMagOption()} style={{ height: 360, width: '100%' }} />
+                            </Card>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16} style={{ marginBottom: 16 }}>
+                        <Col span={24}>
+                            <Card title="微震事件连续变化趋势" bordered={false}>
+                                <EChartComponent option={getVariationOption()} style={{ height: 400, width: '100%' }} />
                             </Card>
                         </Col>
                     </Row>
