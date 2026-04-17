@@ -6,6 +6,7 @@ import UserProfileModal from '@/components/HeaderContent/UserProfileModal';
 import TabsLayout from '@/components/TabsLayout';
 import { AliveScope } from 'react-activation';
 
+import { GUEST_DASHBOARD_PATH, GUEST_HOME_ENTRY_PATHS } from '@/constants/guest';
 import { queryCurrentUser } from '@/services/auth';
 
 // 全局初始化数据配置，用于 Layout 用户信息和权限初始化
@@ -81,6 +82,17 @@ const UserAvatarRender = ({ currentUser, setInitialState }: any) => {
 
 export const layout = ({ initialState, setInitialState }: any) => {
   const { currentUser } = initialState || {};
+  const isGuest = currentUser?.role === 'guest';
+
+  const filterGuestMenu = (menuData: any[] = []): any[] => {
+    return menuData
+      .filter((item) => item.path === '/guest-dashboard')
+      .map((item) => ({
+        ...item,
+        children: [],
+      }));
+  };
+
   return {
     logo: logo,
     title: '透明地质数据处理系统 v2.3',
@@ -90,12 +102,23 @@ export const layout = ({ initialState, setInitialState }: any) => {
     menu: {
       locale: false,
     },
+    menuDataRender: (menuData: any[]) => (isGuest ? filterGuestMenu(menuData) : menuData),
     breadcrumbRender: false,
     onPageChange: () => {
       const { location } = history;
       // 如果没有登录，重定向到 login
       if (!initialState?.currentUser && !localStorage.getItem('token') && location.pathname !== '/login') {
         history.push('/login');
+        return;
+      }
+
+      const currentRole = initialState?.currentUser?.role;
+      if (
+        currentRole === 'guest'
+        && GUEST_HOME_ENTRY_PATHS.includes(location.pathname)
+        && location.pathname !== GUEST_DASHBOARD_PATH
+      ) {
+        history.push(GUEST_DASHBOARD_PATH);
       }
     },
     // 将用户信息移至右上角
