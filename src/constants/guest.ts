@@ -1,6 +1,7 @@
-export const GUEST_DASHBOARD_PATH = '/guest-dashboard';
+export const GUEST_BIG_SCREEN_PATH = '/guestDashboard';
+export const GUEST_DASHBOARD_PATH = GUEST_BIG_SCREEN_PATH;
 
-export const GUEST_ACCESSIBLE_PATHS = [GUEST_DASHBOARD_PATH];
+export const GUEST_ACCESSIBLE_PATHS = [GUEST_BIG_SCREEN_PATH];
 
 export const GUEST_HOME_ENTRY_PATHS = ['/', '/home'];
 
@@ -32,4 +33,13 @@ export const canGuestAccessRedirect = (redirect: string | null) => {
   }
 
   return GUEST_ACCESSIBLE_PATHS.includes(parsedRedirect.pathname);
+};
+
+export const canNonGuestAccessRedirect = (redirect: string | null) => {
+  const parsedRedirect = parseRedirectUrl(redirect);
+  if (!parsedRedirect) {
+    return false;
+  }
+
+  return !GUEST_ACCESSIBLE_PATHS.includes(parsedRedirect.pathname);
 };

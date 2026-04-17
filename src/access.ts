@@ -5,5 +5,6 @@ export default (initialState: { currentUser?: any }) => {
     isAdmin: currentUser && currentUser.role === 'admin',
     // 普通用户权限（或者直接判断登录）
     isUser: currentUser && (currentUser.role === 'user' || currentUser.role === 'admin'),
+    isGuest: currentUser && currentUser.role === 'guest',
   };
 };

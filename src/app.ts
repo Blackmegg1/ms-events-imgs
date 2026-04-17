@@ -6,7 +6,11 @@ import UserProfileModal from '@/components/HeaderContent/UserProfileModal';
 import TabsLayout from '@/components/TabsLayout';
 import { AliveScope } from 'react-activation';
 
-import { GUEST_DASHBOARD_PATH, GUEST_HOME_ENTRY_PATHS } from '@/constants/guest';
+import {
+  GUEST_ACCESSIBLE_PATHS,
+  GUEST_DASHBOARD_PATH,
+  GUEST_HOME_ENTRY_PATHS,
+} from '@/constants/guest';
 import { queryCurrentUser } from '@/services/auth';
 
 // 全局初始化数据配置，用于 Layout 用户信息和权限初始化
@@ -86,10 +90,19 @@ export const layout = ({ initialState, setInitialState }: any) => {
 
   const filterGuestMenu = (menuData: any[] = []): any[] => {
     return menuData
-      .filter((item) => item.path === '/guest-dashboard')
+      .filter((item) => GUEST_ACCESSIBLE_PATHS.includes(item.path))
       .map((item) => ({
         ...item,
         children: [],
+      }));
+  };
+
+  const filterNonGuestMenu = (menuData: any[] = []): any[] => {
+    return menuData
+      .filter((item) => !GUEST_ACCESSIBLE_PATHS.includes(item.path))
+      .map((item) => ({
+        ...item,
+        children: item.children ? filterNonGuestMenu(item.children) : item.children,
       }));
   };
 
@@ -99,10 +112,14 @@ export const layout = ({ initialState, setInitialState }: any) => {
     layout: 'mix', // 采用顶部+侧边混合布局，看起来更高级
     splitMenus: false,
     fixedHeader: true,
+    defaultCollapsed: isGuest,
+    menuRender: isGuest ? false : undefined,
     menu: {
       locale: false,
     },
-    menuDataRender: (menuData: any[]) => (isGuest ? filterGuestMenu(menuData) : menuData),
+    menuDataRender: (menuData: any[]) => (
+      isGuest ? filterGuestMenu(menuData) : filterNonGuestMenu(menuData)
+    ),
     breadcrumbRender: false,
     onPageChange: () => {
       const { location } = history;

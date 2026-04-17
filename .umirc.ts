@@ -27,9 +27,10 @@ export default defineConfig({
       component: './Home',
     },
     {
-      name: '访客首页',
-      path: '/guest-dashboard',
-      component: './Home',
+      name: '访客大屏',
+      path: '/guestDashboard',
+      component: './GuestScreenV2',
+      access: 'isGuest',
     },
     {
       name: '用户管理',
@@ -77,11 +78,6 @@ export default defineConfig({
       name: '微震时序成图',
       path: '/timingImg',
       component: './TimingImg',
-    },
-    {
-      name: '访客大屏',
-      path: '/guestDashboard',
-      component: './GuestDashboard',
     },
     {
       name: '空间模型',

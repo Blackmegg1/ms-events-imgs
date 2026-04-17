@@ -5,6 +5,7 @@ import { Alert, message } from 'antd';
 import React, { useState } from 'react';
 import {
     canGuestAccessRedirect,
+    canNonGuestAccessRedirect,
     GUEST_DASHBOARD_PATH,
     getSafeRedirectTarget,
 } from '@/constants/guest';
@@ -75,7 +76,11 @@ const Login: React.FC = () => {
                     return;
                 }
 
-                history.push(redirect || '/');
+                if (canNonGuestAccessRedirect(redirect)) {
+                    history.push(getSafeRedirectTarget(redirect));
+                } else {
+                    history.push('/');
+                }
                 return;
             } else {
                 // 如果失败去设置用户错误信息

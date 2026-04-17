@@ -7,7 +7,9 @@ import './index.css';
 const TabsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { drop } = useAliveController();
     const model = useModel('tabs' as any) as any;
+    const { initialState } = useModel('@@initialState');
     const { tabs = [], addTab = () => { }, removeTab = () => { } } = model || {};
+    const isGuest = initialState?.currentUser?.role === 'guest';
 
     const location = useLocation();
     const routes = useSelectedRoutes();
@@ -21,7 +23,7 @@ const TabsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }, [routes]);
 
     useEffect(() => {
-        if (!model) return;
+        if (!model || isGuest) return;
 
         // 过滤掉登录页和根路径
         if (location.pathname === '/login' || location.pathname === '/') return;
@@ -35,7 +37,7 @@ const TabsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             pathname: normalizedPath,
             closable: normalizedPath !== '/home',
         });
-    }, [location.pathname, currentRouteTitle, addTab, !!model]);
+    }, [location.pathname, currentRouteTitle, addTab, !!model, isGuest]);
 
     const onChange = (key: string) => {
         // 查找对应的 tab
@@ -60,7 +62,7 @@ const TabsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
     const isLoginPage = activeKey === '/login' || activeKey === '/';
 
-    if (!model || isLoginPage) {
+    if (!model || isLoginPage || isGuest) {
         return <>{children}</>;
     }
 

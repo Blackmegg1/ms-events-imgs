@@ -1,0 +1,206 @@
+.ant-pro-page-container-children-container:has(.guest-screen-v2) {
+  padding-block-start: 0;
+  padding-block-end: 0;
+  padding-inline: 0;
+}
+
+body:has(.guest-screen-v2),
+html.guest-screen-active,
+body.guest-screen-active,
+body.guest-screen-active *,
+.ant-layout:has(.guest-screen-v2),
+.ant-pro-layout-content:has(.guest-screen-v2),
+.ant-pro-page-container:has(.guest-screen-v2),
+.ant-pro-page-container-children-content:has(.guest-screen-v2),
+.ant-pro-page-container-children-container:has(.guest-screen-v2),
+.ant-layout-content:has(.guest-screen-v2),
+.guest-screen-v2 {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+body:has(.guest-screen-v2)::-webkit-scrollbar,
+html.guest-screen-active::-webkit-scrollbar,
+body.guest-screen-active::-webkit-scrollbar,
+body.guest-screen-active *::-webkit-scrollbar,
+.ant-layout:has(.guest-screen-v2)::-webkit-scrollbar,
+.ant-pro-layout-content:has(.guest-screen-v2)::-webkit-scrollbar,
+.ant-pro-page-container:has(.guest-screen-v2)::-webkit-scrollbar,
+.ant-pro-page-container-children-content:has(.guest-screen-v2)::-webkit-scrollbar,
+.ant-pro-page-container-children-container:has(.guest-screen-v2)::-webkit-scrollbar,
+.ant-layout-content:has(.guest-screen-v2)::-webkit-scrollbar,
+.guest-screen-v2::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.guest-screen-v2 {
+  min-height: calc(100vh - 56px);
+  padding: 16px;
+  background: linear-gradient(135deg, #f3f7f8 0%, #eef4ef 48%, #f7f7f2 100%);
+}
+
+.guest-screen-v2--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guest-screen-v2__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.guest-screen-v2__project-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guest-screen-v2__project {
+  color: #17211c;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.guest-screen-v2__subtitle {
+  color: #52635b;
+  font-size: 14px;
+}
+
+.guest-screen-v2__time-range {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 240px;
+  padding: 10px 14px;
+  color: #426153;
+  text-align: right;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(79, 143, 107, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(31, 51, 42, 0.06);
+}
+
+.guest-screen-v2__time-range span {
+  font-size: 12px;
+}
+
+.guest-screen-v2__time-range strong {
+  color: #17211c;
+  font-size: 17px;
+}
+
+.guest-screen-v2__alert,
+.guest-screen-v2__metrics,
+.guest-screen-v2 .ant-row {
+  margin-bottom: 16px;
+}
+
+.guest-screen-v2 .ant-card {
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(31, 51, 42, 0.08);
+}
+
+.guest-screen-v2 .ant-statistic-title {
+  color: #52635b;
+}
+
+.guest-screen-v2 .ant-statistic-content {
+  color: #17211c;
+}
+
+.guest-screen-v2__chart {
+  width: 100%;
+  height: 360px;
+}
+
+.guest-screen-v2__wide-chart {
+  width: 100%;
+  height: 420px;
+}
+
+.guest-screen-v2__plane-chart,
+.guest-screen-v2__scene-chart,
+.guest-screen-v2__scene {
+  width: 100%;
+  height: 360px;
+}
+
+.guest-screen-v2__planar-wrap {
+  width: 100%;
+  height: 330px;
+  overflow: hidden;
+}
+
+.guest-screen-v2__planar-wrap canvas {
+  display: block;
+  max-height: 330px;
+  object-fit: contain;
+}
+
+.guest-screen-v2__planar-carousel {
+  height: 360px;
+  overflow: hidden;
+}
+
+.guest-screen-v2__planar-slide {
+  height: 360px;
+  padding: 0 2px;
+}
+
+.guest-screen-v2__planar-name {
+  height: 24px;
+  color: #52635b;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.guest-screen-v2__planar-carousel .ant-carousel,
+.guest-screen-v2__planar-carousel .slick-slider,
+.guest-screen-v2__planar-carousel .slick-list,
+.guest-screen-v2__planar-carousel .slick-track {
+  height: 100%;
+}
+
+.guest-screen-v2__planar-carousel .slick-dots {
+  bottom: 0;
+}
+
+.guest-screen-v2__planar-carousel .slick-dots li button {
+  background: #4f8f6b;
+}
+
+@media (max-width: 768px) {
+  .guest-screen-v2 {
+    padding: 12px;
+  }
+
+  .guest-screen-v2__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .guest-screen-v2__project {
+    font-size: 22px;
+  }
+
+  .guest-screen-v2__time-range {
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .guest-screen-v2__chart,
+  .guest-screen-v2__plane-chart,
+  .guest-screen-v2__scene-chart,
+  .guest-screen-v2__wide-chart,
+  .guest-screen-v2__scene {
+    height: 360px;
+  }
+}
