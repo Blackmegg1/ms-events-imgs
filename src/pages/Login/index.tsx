@@ -3,6 +3,11 @@ import { LoginForm, ProFormText } from '@ant-design/pro-components';
 import { history, useModel } from '@umijs/max';
 import { Alert, message } from 'antd';
 import React, { useState } from 'react';
+import {
+    canGuestAccessRedirect,
+    GUEST_DASHBOARD_PATH,
+    getSafeRedirectTarget,
+} from '@/constants/guest';
 import { login } from '@/services/auth';
 import styles from './index.less';
 
@@ -58,7 +63,19 @@ const Login: React.FC = () => {
 
                 /** 此方法会跳转到 redirect 参数所在的位置 */
                 const urlParams = new URL(window.location.href).searchParams;
-                history.push(urlParams.get('redirect') || '/');
+                const redirect = urlParams.get('redirect');
+                const role = msg?.user?.role;
+
+                if (role === 'guest') {
+                    if (canGuestAccessRedirect(redirect)) {
+                        history.push(getSafeRedirectTarget(redirect));
+                    } else {
+                        history.push(GUEST_DASHBOARD_PATH);
+                    }
+                    return;
+                }
+
+                history.push(redirect || '/');
                 return;
             } else {
                 // 如果失败去设置用户错误信息

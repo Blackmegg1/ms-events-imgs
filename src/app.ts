@@ -6,6 +6,7 @@ import UserProfileModal from '@/components/HeaderContent/UserProfileModal';
 import TabsLayout from '@/components/TabsLayout';
 import { AliveScope } from 'react-activation';
 
+import { GUEST_DASHBOARD_PATH, GUEST_HOME_ENTRY_PATHS } from '@/constants/guest';
 import { queryCurrentUser } from '@/services/auth';
 
 // 全局初始化数据配置，用于 Layout 用户信息和权限初始化
@@ -96,6 +97,16 @@ export const layout = ({ initialState, setInitialState }: any) => {
       // 如果没有登录，重定向到 login
       if (!initialState?.currentUser && !localStorage.getItem('token') && location.pathname !== '/login') {
         history.push('/login');
+        return;
+      }
+
+      const currentRole = initialState?.currentUser?.role;
+      if (
+        currentRole === 'guest'
+        && GUEST_HOME_ENTRY_PATHS.includes(location.pathname)
+        && location.pathname !== GUEST_DASHBOARD_PATH
+      ) {
+        history.push(GUEST_DASHBOARD_PATH);
       }
     },
     // 将用户信息移至右上角
