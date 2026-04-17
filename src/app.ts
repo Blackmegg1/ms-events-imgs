@@ -81,6 +81,17 @@ const UserAvatarRender = ({ currentUser, setInitialState }: any) => {
 
 export const layout = ({ initialState, setInitialState }: any) => {
   const { currentUser } = initialState || {};
+  const isGuest = currentUser?.role === 'guest';
+
+  const filterGuestMenu = (menuData: any[] = []): any[] => {
+    return menuData
+      .filter((item) => item.path === '/guest-dashboard')
+      .map((item) => ({
+        ...item,
+        children: [],
+      }));
+  };
+
   return {
     logo: logo,
     title: '透明地质数据处理系统 v2.3',
@@ -90,6 +101,7 @@ export const layout = ({ initialState, setInitialState }: any) => {
     menu: {
       locale: false,
     },
+    menuDataRender: (menuData: any[]) => (isGuest ? filterGuestMenu(menuData) : menuData),
     breadcrumbRender: false,
     onPageChange: () => {
       const { location } = history;
