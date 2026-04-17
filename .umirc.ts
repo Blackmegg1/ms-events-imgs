@@ -74,6 +74,11 @@ export default defineConfig({
       component: './TimingImg',
     },
     {
+      name: '访客大屏',
+      path: '/guestDashboard',
+      component: './GuestDashboard',
+    },
+    {
       name: '空间模型',
       path: '/spaceModel',
       routes: [
@@ -110,7 +115,6 @@ export default defineConfig({
         },
       ],
     },
-
   ],
   npmClient: 'pnpm',
   proxy: {
