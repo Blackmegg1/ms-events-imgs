@@ -27,9 +27,9 @@ export default defineConfig({
       component: './Home',
     },
     {
-      name: '项目大屏',
+      name: '访客首页',
       path: '/guest-dashboard',
-      component: './GuestDashboard',
+      component: './Home',
     },
     {
       name: '用户管理',
