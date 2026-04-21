@@ -1,4 +1,4 @@
-﻿import eventServices from '@/services/event';
+import eventServices from '@/services/event';
 import { Col, DatePicker, Form, InputNumber, Modal, Row, Select, message } from 'antd';
 import dayjs from 'dayjs';
 import React, { PropsWithChildren, useMemo, useState } from 'react';
@@ -42,8 +42,8 @@ const SimulateModal: React.FC<PropsWithChildren<SimulateModalProps>> = ({
         [zMin, zMax, 'Z范围'],
       ];
       for (const [min, max, label] of checks) {
-        if (min >= max) {
-          message.error(`${label}最小值应小于最大值`);
+        if (min > max) {
+          message.error(`${label}最小值应小于或等于最大值`);
           return;
         }
       }
@@ -56,15 +56,15 @@ const SimulateModal: React.FC<PropsWithChildren<SimulateModalProps>> = ({
         message.error('能量范围需为正数');
         return;
       }
-      if (Number(energyMin) >= Number(energyMax)) {
-        message.error('能量范围最小值应小于最大值');
+      if (Number(energyMin) > Number(energyMax)) {
+        message.error('能量范围最小值应小于或等于最大值');
         return;
       }
 
       const [start, end] = timeRange || [];
       const startMs = dayjs(start).valueOf();
       const endMs = dayjs(end).valueOf();
-      if (!startMs || !endMs || startMs >= endMs) {
+      if (!startMs || !endMs || startMs > endMs) {
         message.error('时间范围不合法');
         return;
       }
