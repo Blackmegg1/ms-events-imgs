@@ -233,8 +233,8 @@ const Event: React.FC = () => {
     const targetFormat = useTimeFormat && customTimeFormat
       ? customTimeFormat
       : useLTP
-        ? 'YYYY/MM/DD HH:mm'
-        : 'YYMMDD';
+        ? 'YYYY-MM-DD HH:mm:ss'
+        : 'YYYY-MM-DD';
     const requiresTimeOfDay = /[HhmsS]/.test(targetFormat);
     let csvHeader = useLTP
       ? '发震时刻,x,y,z,能量(J),震级(M)'
@@ -405,8 +405,10 @@ const Event: React.FC = () => {
     // rowsWithTime.sort((a, b) => a.t - b.t);
     const csvRows = rowsWithTime.map((r) => r.row);
 
-    const csvData = [csvHeader, ...csvRows].join('\n');
-    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const csvData = [csvHeader, ...csvRows].join('\r\n');
+    const blob = new Blob(['\uFEFF', csvData], {
+      type: 'text/csv;charset=utf-8;',
+    });
     const link = document.createElement('a');
     const projectName = project?.text || '导出数据';
     const fileName = `${projectName} ${formattedTimeRange?.[0]}~${formattedTimeRange?.[1]
