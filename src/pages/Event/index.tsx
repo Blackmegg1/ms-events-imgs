@@ -1,18 +1,24 @@
 import eventServices from '@/services/event';
+import layerServices from '@/services/layer';
+import modelServices from '@/services/model';
+import { getPointList } from '@/services/point/PointController';
 import projectServices from '@/services/project';
 import { createAffineTransform2D } from '@/utils';
-import { ActionType, FooterToolbar, PageContainer, ProTable } from '@ant-design/pro-components';
-import { Button, Dropdown, Form, message } from 'antd';
 import { DownOutlined } from '@ant-design/icons';
+import {
+  ActionType,
+  FooterToolbar,
+  PageContainer,
+  ProTable,
+} from '@ant-design/pro-components';
+import { Button, Dropdown, Form, message } from 'antd';
+import { Delaunay } from 'd3-delaunay';
 import dayjs from 'dayjs';
 import { useEffect, useRef, useState } from 'react';
-import { Delaunay } from 'd3-delaunay';
+import * as XLSX from 'xlsx';
 import BatchImport from './components/BatchImport';
 import CreateForm from './components/CreateForm';
 import SimulateModal from './components/SimulateModal';
-import modelServices from '@/services/model';
-import layerServices from '@/services/layer';
-import { getPointList } from '@/services/point/PointController';
 
 const { getEventList, addEvent, batchDeleteEvents } =
   eventServices.EventController;
@@ -201,7 +207,10 @@ const Event: React.FC = () => {
   };
 
   // 批量导出
-  const handleBatchExport = async (type: 'direct' | 'layered' = 'direct') => {
+  const handleBatchExport = async (
+    type: 'direct' | 'layered' = 'direct',
+    format: 'csv' | 'xlsx' = 'csv',
+  ) => {
     // @ts-ignore
     const formParams = formRef.current?.getFieldsValue(true);
     if (!formParams.timeRage) {
@@ -230,11 +239,12 @@ const Event: React.FC = () => {
     const useTimeFormat = project?.enable_time_format === 1;
     const customTimeFormat = project?.time_format as string | undefined;
 
-    const targetFormat = useTimeFormat && customTimeFormat
-      ? customTimeFormat
-      : useLTP
-        ? 'YYYY-MM-DD HH:mm:ss'
-        : 'YYYY-MM-DD';
+    const targetFormat =
+      useTimeFormat && customTimeFormat
+        ? customTimeFormat
+        : useLTP
+          ? 'YYYY-MM-DD HH:mm:ss'
+          : 'YYYY-MM-DD';
     const requiresTimeOfDay = /[HhmsS]/.test(targetFormat);
     let csvHeader = useLTP
       ? '发震时刻,x,y,z,能量(J),震级(M)'
@@ -248,9 +258,10 @@ const Event: React.FC = () => {
 
     if (type === 'layered') {
       try {
-        const { list: models } = await modelServices.ModelController.getModelList({
-          project_id: formParams.project_id,
-        });
+        const { list: models } =
+          await modelServices.ModelController.getModelList({
+            project_id: formParams.project_id,
+          });
         if (models && models.length > 0) {
           const modelId = models[models.length - 1].model_id;
           const [layerResponse, pointResponse] = await Promise.all([
@@ -273,7 +284,8 @@ const Event: React.FC = () => {
 
             // 构建点到三角形映射
             pointToTriangles = new Array(modelPoints.length);
-            for (let i = 0; i < modelPoints.length; i++) pointToTriangles[i] = [];
+            for (let i = 0; i < modelPoints.length; i++)
+              pointToTriangles[i] = [];
             const { triangles } = delaunay;
             for (let i = 0; i < triangles.length; i++) {
               const pIdx = triangles[i];
@@ -290,10 +302,10 @@ const Event: React.FC = () => {
 
     let transformFunc:
       | ((
-        x: number,
-        y: number,
-        z: number,
-      ) => { x: number; y: number; z: number })
+          x: number,
+          y: number,
+          z: number,
+        ) => { x: number; y: number; z: number })
       | null = null;
 
     if (useLTP) {
@@ -396,8 +408,9 @@ const Event: React.FC = () => {
 
         return {
           // t: base.valueOf(),
-          row: `${formattedTime},${loc_x},${loc_y},${loc_z},${energy},${magnitude}${type === 'layered' ? `,${layerName}` : ''
-            }`,
+          row: `${formattedTime},${loc_x},${loc_y},${loc_z},${energy},${magnitude}${
+            type === 'layered' ? `,${layerName}` : ''
+          }`,
         };
       },
     );
@@ -405,14 +418,30 @@ const Event: React.FC = () => {
     // rowsWithTime.sort((a, b) => a.t - b.t);
     const csvRows = rowsWithTime.map((r) => r.row);
 
+    if (format === 'xlsx') {
+      const worksheet = XLSX.utils.aoa_to_sheet([
+        csvHeader.split(','),
+        ...csvRows.map((row) => row.split(',')),
+      ]);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Events');
+      const projectName = project?.text || '导出数据';
+      const fileName = `${projectName} ${formattedTimeRange?.[0]}~${
+        formattedTimeRange?.[1]
+      }${type === 'layered' ? '_分层' : ''}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      return;
+    }
+
     const csvData = [csvHeader, ...csvRows].join('\r\n');
     const blob = new Blob(['\uFEFF', csvData], {
       type: 'text/csv;charset=utf-8;',
     });
     const link = document.createElement('a');
     const projectName = project?.text || '导出数据';
-    const fileName = `${projectName} ${formattedTimeRange?.[0]}~${formattedTimeRange?.[1]
-      }${type === 'layered' ? '_分层' : ''}.csv`;
+    const fileName = `${projectName} ${formattedTimeRange?.[0]}~${
+      formattedTimeRange?.[1]
+    }${type === 'layered' ? '_分层' : ''}.csv`;
 
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -470,6 +499,11 @@ const Event: React.FC = () => {
                   key: 'layered',
                   label: '分层导出',
                   onClick: () => handleBatchExport('layered'),
+                },
+                {
+                  key: 'xlsx',
+                  label: '导出 XLSX',
+                  onClick: () => handleBatchExport('direct', 'xlsx'),
                 },
               ],
             }}

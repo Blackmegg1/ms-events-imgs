@@ -1,6 +1,7 @@
 import eventServices from '@/services/event';
 import { Button, Form, Modal, Select, Upload, message } from 'antd';
 import React, { PropsWithChildren, useEffect, useState } from 'react';
+import * as XLSX from 'xlsx';
 
 const { batchAddEvent } = eventServices.EventController;
 
@@ -32,23 +33,59 @@ const BatchImport: React.FC<PropsWithChildren<BatchImportProps>> = ({
     }
   }, [projectDist]);
 
-  const handleImport = () => {
+  const getImportFile = async (file: File) => {
+    const fileName = file.name.toLowerCase();
+
+    if (fileName.endsWith('.csv')) {
+      return file;
+    }
+
+    if (!fileName.endsWith('.xlsx')) {
+      throw new Error('仅支持 CSV 或 XLSX 文件');
+    }
+
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, { type: 'array' });
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) {
+      throw new Error('XLSX 文件中没有可导入的工作表');
+    }
+    const firstSheet = workbook.Sheets[firstSheetName];
+    const csv = XLSX.utils.sheet_to_csv(firstSheet);
+    const csvFileName = file.name.replace(/\.xlsx$/i, '.csv');
+
+    return new File([`\uFEFF${csv}`], csvFileName, {
+      type: 'text/csv;charset=utf-8;',
+    });
+  };
+
+  const handleImport = async () => {
     const values = form.getFieldsValue();
     console.log(values);
+    const uploadFileInfo = values.excel?.file || values.excel?.fileList?.[0];
+    const uploadFile = (uploadFileInfo?.originFileObj ||
+      uploadFileInfo) as File | undefined;
 
-    const formData = new FormData();
-    formData.append('project_id', values.project_id);
-    formData.append('file', values.excel.file.originFileObj);
+    if (!values.project_id) {
+      message.warning('请选择所属工程！');
+      return;
+    }
 
-    batchAddEvent(formData)
-      .then((res) => {
-        onOk();
-        message.success(res.message);
-      })
-      .catch((err) => {
-        message.error(err.message);
-      });
-    onOk();
+    if (!uploadFile) {
+      message.warning('请上传 CSV 或 XLSX 文件！');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('project_id', values.project_id);
+      formData.append('file', await getImportFile(uploadFile));
+      const res = await batchAddEvent(formData);
+      onOk();
+      message.success(res.message);
+    } catch (err: any) {
+      message.error(err.message);
+    }
   };
 
   const handleCancle = () => {
@@ -90,8 +127,13 @@ const BatchImport: React.FC<PropsWithChildren<BatchImportProps>> = ({
         <Form.Item name="project_id" label="所属工程" required>
           <Select options={options} />
         </Form.Item>
-        <Form.Item name="excel" label="CSV文件" required>
-          <Upload>
+        <Form.Item
+          name="excel"
+          label="CSV/XLSX文件"
+          required
+          getValueFromEvent={(event) => event}
+        >
+          <Upload accept=".csv,.xlsx" beforeUpload={() => false} maxCount={1}>
             <Button>点击上传</Button>
           </Upload>
         </Form.Item>
