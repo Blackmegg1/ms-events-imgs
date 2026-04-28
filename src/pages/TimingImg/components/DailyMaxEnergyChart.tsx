@@ -31,7 +31,7 @@ const DailyMaxEnergyChart: React.FC<DailyMaxEnergyChartProps> = ({
 
     // 找出每日最大能量
     events.forEach((event) => {
-      const date = event.time.split('T')[0];
+      const date = event.time.substring(0, 10); // 提取日期部分 (YYYY-MM-DD)
       if (!dailyMaxEnergy[date] || event.energy > dailyMaxEnergy[date]) {
         dailyMaxEnergy[date] = event.energy;
       }

@@ -31,7 +31,7 @@ const DailyAverageEnergyChart: React.FC<DailyAverageEnergyChartProps> = ({
 
     // 收集每日能量总和和事件数量
     events.forEach((event) => {
-      const date = event.time.split('T')[0];
+      const date = event.time.substring(0, 10); // 提取日期部分 (YYYY-MM-DD)
       if (!dailyEnergies[date]) {
         dailyEnergies[date] = { total: 0, count: 0 };
       }

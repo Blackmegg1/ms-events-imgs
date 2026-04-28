@@ -27,7 +27,7 @@ const DailyEnergyChart: React.FC<DailyEnergyChartProps> = ({ events }) => {
   const processData = () => {
     const dailyEnergy = events.reduce(
       (acc, event) => {
-        const date = event.time.split('T')[0]; // 提取日期部分
+        const date = event.time.substring(0, 10); // 提取日期部分 (YYYY-MM-DD)
         acc[date] = (acc[date] || 0) + event.energy;
         return acc;
       },
