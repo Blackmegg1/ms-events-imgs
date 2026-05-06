@@ -75,9 +75,20 @@ export default defineConfig({
       ],
     },
     {
-      name: '微震时序成图',
-      path: '/timingImg',
-      component: './TimingImg',
+      name: '微震事件分析',
+      path: '/eventAnalysis',
+      routes: [
+        {
+          name: '微震时序成图',
+          path: '/eventAnalysis/timingImg',
+          component: './TimingImg',
+        },
+        {
+          name: '微震幂律法分析',
+          path: '/eventAnalysis/powerLaw',
+          component: './PowerLaw',
+        },
+      ],
     },
     {
       name: '空间模型',

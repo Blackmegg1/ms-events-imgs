@@ -108,7 +108,7 @@ export const layout = ({ initialState, setInitialState }: any) => {
 
   return {
     logo: logo,
-    title: '透明地质数据处理系统 v2.3',
+    title: '透明地质数据处理系统 v2.4',
     layout: 'mix', // 采用顶部+侧边混合布局，看起来更高级
     splitMenus: false,
     fixedHeader: true,

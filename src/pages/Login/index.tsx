@@ -110,7 +110,7 @@ const Login: React.FC = () => {
             />
             <div className={styles.content}>
                 <div className={styles.login}>
-                    <div className={styles.title}>透明地质数据处理系统 v2.3 </div>
+                    <div className={styles.title}>透明地质数据处理系统 v2.4 </div>
                     <LoginForm
                         subTitle=" "
                         initialValues={{
