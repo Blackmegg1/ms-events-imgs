@@ -4,6 +4,7 @@ import { getActiveProject, getProjectDist } from '@/services/project/ProjectCont
 import { computerEvent } from '@/utils/pointSurfaceRegion';
 import { getModelList } from '@/services/model/ModelController';
 import { getLayerList } from '@/services/layer/LayerController';
+import { sortLayersByDistanceDesc } from '@/utils/layer';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import {
   Button,
@@ -333,7 +334,7 @@ const Create = () => {
                         const modelId = models[models.length - 1].model_id;
                         const { list: layers } = await getLayerList({ model_id: modelId });
                         // 筛选出分析分区 (layer_type === 1)
-                        const zones = layers.filter((l: any) => l.layer_type === 1);
+                        const zones = sortLayersByDistanceDesc(layers).filter((l: any) => l.layer_type === 1);
                         setAnalysisZones(zones);
                       }
                     } catch (e) {

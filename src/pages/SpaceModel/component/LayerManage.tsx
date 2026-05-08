@@ -4,6 +4,7 @@ import {
   getLayerList,
   updateLayer,
 } from '@/services/layer/LayerController';
+import { sortLayersByDistanceDesc } from '@/utils/layer';
 import {
   Button,
   ColorPicker,
@@ -65,7 +66,7 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
     try {
       setLoading(true);
       const response = await getLayerList({ model_id: currentRecord.model_id });
-      setDataSource(response.list);
+      setDataSource(sortLayersByDistanceDesc(response.list));
     } catch (error) {
       console.error('获取图层列表失败:', error);
       message.error('获取图层列表失败');
@@ -199,10 +200,11 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
   }) => {
     const SCALE = 4;
     const VIEW_HEIGHT = 450;
+    const sortedLayers = sortLayersByDistanceDesc(layers);
 
     // 动态计算范围，确保所有层位都能展示
-    const distances = layers?.map((l) => l.layer_distance) || [];
-    const bottoms = layers?.map((l) => l.layer_distance - l.layer_depth) || [];
+    const distances = sortedLayers.map((l) => l.layer_distance);
+    const bottoms = sortedLayers.map((l) => l.layer_distance - l.layer_depth);
     const allVals = [...distances, ...bottoms, 0];
     const maxVal = Math.max(...allVals, 50); // 至少显示到+50m
     const minVal = Math.min(...allVals, -50); // 至少显示到-50m
@@ -287,7 +289,7 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
           </div>
 
           {/* 渲染各层 */}
-          {layers?.map((layer: LayerItem, idx: number) => {
+          {sortedLayers.map((layer: LayerItem, idx: number) => {
             const isHighlighted =
               highlightedLayer &&
               (highlightedLayer.id === layer.id ||

@@ -2,6 +2,7 @@ import { getEventList } from '@/services/event/EventController';
 import { getLayerList } from '@/services/layer/LayerController';
 import { getModelList } from '@/services/model/ModelController';
 import { getActiveProject } from '@/services/project/ProjectController';
+import { sortLayersByDistanceDesc } from '@/utils/layer';
 import { computerEvent, getEventRelativeZ } from '@/utils/pointSurfaceRegion';
 import { PageContainer } from '@ant-design/pro-components';
 import {
@@ -78,7 +79,7 @@ const Statistics: React.FC = () => {
     const handleModelChange = async (modelId: number) => {
         form.setFieldsValue({ ref_layer_id: null });
         const { list: layers } = await getLayerList({ model_id: modelId });
-        const options = layers.map((l: any) => ({
+        const options = sortLayersByDistanceDesc(layers).map((l: any) => ({
             value: l.id,
             label: l.layer_name,
             original: l
@@ -102,7 +103,7 @@ const Statistics: React.FC = () => {
         try {
             // 1. 获取层位/分区列表
             const { list: layers } = await getLayerList({ model_id });
-            const zones = layers.filter((l: any) => l.layer_type === 1);
+            const zones = sortLayersByDistanceDesc(layers).filter((l: any) => l.layer_type === 1);
 
             if (zones.length === 0) {
                 message.warning('该模型下未定义分析分区！');
@@ -433,7 +434,7 @@ const Statistics: React.FC = () => {
                 name: '微震事件最大发育深度 (m)',
                 type: 'line',
                 yAxisIndex: 1,
-                data: variationData.map(d => d.maxDepth),
+                data: variationData.map(d => -Math.abs(Number(d.maxDepth) || 0)),
                 smooth: false,
                 itemStyle: { color: '#52c41a' },
                 lineStyle: { width: 2, type: 'dashed' }
