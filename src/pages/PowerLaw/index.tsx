@@ -15,24 +15,29 @@ import {
   Statistic,
 } from 'antd';
 import dayjs from 'dayjs';
+import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import ComparisonPanel from './components/ComparisonPanel';
 import GRChart from './components/GRChart';
-import ThresholdConfigModal from './components/ThresholdConfigModal';
 import HeatmapPanel from './components/HeatmapPanel';
+import ThresholdConfigModal from './components/ThresholdConfigModal';
 import TrendChart from './components/TrendChart';
+import type {
+  ComparisonResult,
+  ThresholdConfig,
+} from './utils/analyzeComparison';
 import {
   analyzeComparison,
   DEFAULT_THRESHOLDS,
 } from './utils/analyzeComparison';
-import type { ComparisonResult, ThresholdConfig } from './utils/analyzeComparison';
-import {
-  calculatePowerLaw,
-  isPowerLawError,
+import type {
+  EventItem,
+  PowerLawError,
+  PowerLawResult,
 } from './utils/calculatePowerLaw';
-import type { EventItem, PowerLawError, PowerLawResult } from './utils/calculatePowerLaw';
-import { calculateSlidingWindow } from './utils/calculateSlidingWindow';
+import { calculatePowerLaw, isPowerLawError } from './utils/calculatePowerLaw';
 import type { WindowResult } from './utils/calculateSlidingWindow';
+import { calculateSlidingWindow } from './utils/calculateSlidingWindow';
 
 const { RangePicker } = DatePicker;
 
@@ -50,6 +55,22 @@ const WINDOW_OPTIONS = [
   { value: 15, label: '15 日' },
 ];
 
+const statTitleStyle: CSSProperties = {
+  color: '#434343',
+  fontSize: 15,
+  fontWeight: 600,
+};
+
+const statValueStyle: CSSProperties = {
+  color: '#1f1f1f',
+  fontSize: 26,
+  fontWeight: 600,
+};
+
+function renderStatTitle(title: string) {
+  return <span style={statTitleStyle}>{title}</span>;
+}
+
 function formatRange(start: string, end: string) {
   return `${start} ~ ${end}`;
 }
@@ -58,16 +79,23 @@ const PowerLaw = () => {
   const [form] = Form.useForm();
   const baselineType = Form.useWatch('baselineType', form);
 
-  const [projectArr, setProjectArr] = useState<{ value: number; label: string }[]>([]);
+  const [projectArr, setProjectArr] = useState<
+    { value: number; label: string }[]
+  >([]);
   const [loading, setLoading] = useState(false);
-  const [thresholds, setThresholds] = useState<ThresholdConfig>(DEFAULT_THRESHOLDS);
+  const [thresholds, setThresholds] =
+    useState<ThresholdConfig>(DEFAULT_THRESHOLDS);
   const [thresholdModalOpen, setThresholdModalOpen] = useState(false);
 
-  const [currentResult, setCurrentResult] = useState<PowerLawResult | PowerLawError | null>(null);
+  const [currentResult, setCurrentResult] = useState<
+    PowerLawResult | PowerLawError | null
+  >(null);
   const [currentEvents, setCurrentEvents] = useState<EventItem[]>([]);
   const [currentRangeLabel, setCurrentRangeLabel] = useState('');
 
-  const [baselineResult, setBaselineResult] = useState<PowerLawResult | PowerLawError | null>(null);
+  const [baselineResult, setBaselineResult] = useState<
+    PowerLawResult | PowerLawError | null
+  >(null);
   const [baselineRangeLabel, setBaselineRangeLabel] = useState('');
 
   const [windowResults, setWindowResults] = useState<WindowResult[]>([]);
@@ -143,7 +171,12 @@ const PowerLaw = () => {
       setWindowDaysState(wDays);
 
       // ── 滑动窗口（复用当前时间段事件）──
-      const winResults = calculateSlidingWindow(curEvents, curStart, curEnd, wDays);
+      const winResults = calculateSlidingWindow(
+        curEvents,
+        curStart,
+        curEnd,
+        wDays,
+      );
       setWindowResults(winResults);
 
       // ── 基准时间段 ──
@@ -199,7 +232,11 @@ const PowerLaw = () => {
     <PageContainer header={{ title: '微震幂律法分析' }}>
       {/* 筛选表单 */}
       <Card>
-        <Form form={form} layout="inline" initialValues={{ baselineType: 'prev30', windowDays: 7 }}>
+        <Form
+          form={form}
+          layout="inline"
+          initialValues={{ baselineType: 'prev30', windowDays: 7 }}
+        >
           <Row gutter={[16, 12]} style={{ width: '100%' }}>
             <Col>
               <Form.Item label="分析项目" name="project_id">
@@ -282,38 +319,50 @@ const PowerLaw = () => {
           <Card style={{ marginTop: 16 }}>
             <Row gutter={32}>
               <Col span={6}>
-                <Statistic title="事件总数" value={currentResult.totalCount} suffix="次" />
-              </Col>
-              <Col span={6}>
                 <Statistic
-                  title="参与拟合的震级点数"
-                  value={currentResult.pointCount}
-                  suffix="个"
+                  title={renderStatTitle('事件总数')}
+                  value={currentResult.totalCount}
+                  suffix="次"
+                  valueStyle={statValueStyle}
                 />
               </Col>
               <Col span={6}>
-                <Statistic title="a 值（活动性参数）" value={currentResult.a.toFixed(4)} />
+                <Statistic
+                  title={renderStatTitle('参与拟合的能级点数')}
+                  value={currentResult.pointCount}
+                  suffix="个"
+                  valueStyle={statValueStyle}
+                />
               </Col>
               <Col span={6}>
-                <Statistic title="b 值（震级比例参数）" value={currentResult.b.toFixed(4)} />
+                <Statistic
+                  title={renderStatTitle('a 值（活动性参数）')}
+                  value={currentResult.a.toFixed(4)}
+                  valueStyle={statValueStyle}
+                />
+              </Col>
+              <Col span={6}>
+                <Statistic
+                  title={renderStatTitle('b 值（能级比例参数）')}
+                  value={currentResult.b.toFixed(4)}
+                  valueStyle={statValueStyle}
+                />
               </Col>
             </Row>
           </Card>
 
           {/* 历史对比面板 */}
-          {comparison &&
-            baselineResult &&
-            !isPowerLawError(baselineResult) && (
-              <div style={{ marginTop: 16 }}>
-                <ComparisonPanel
-                  current={currentResult}
-                  baseline={baselineResult}
-                  currentLabel={currentRangeLabel}
-                  baselineLabel={baselineRangeLabel}
-                  comparison={comparison}
-                />
-              </div>
-            )}
+          {comparison && baselineResult && !isPowerLawError(baselineResult) && (
+            <div style={{ marginTop: 16 }}>
+              <ComparisonPanel
+                current={currentResult}
+                baseline={baselineResult}
+                currentLabel={currentRangeLabel}
+                baselineLabel={baselineRangeLabel}
+                comparison={comparison}
+              />
+            </div>
+          )}
 
           {/* G-R 关系图 */}
           <div style={{ marginTop: 16 }}>
@@ -323,7 +372,10 @@ const PowerLaw = () => {
           {/* 滑窗趋势图 */}
           {windowResults.length > 0 && (
             <div style={{ marginTop: 16 }}>
-              <TrendChart windowResults={windowResults} windowDays={windowDays} />
+              <TrendChart
+                windowResults={windowResults}
+                windowDays={windowDays}
+              />
             </div>
           )}
 
@@ -331,7 +383,6 @@ const PowerLaw = () => {
           <div style={{ marginTop: 16 }}>
             <HeatmapPanel events={currentEvents} />
           </div>
-
         </>
       )}
 

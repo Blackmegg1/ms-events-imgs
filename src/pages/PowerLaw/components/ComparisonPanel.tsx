@@ -24,6 +24,22 @@ function trendPrefix(delta: number): string {
   return '— ';
 }
 
+const statTitleStyle: React.CSSProperties = {
+  color: '#434343',
+  fontSize: 14,
+  fontWeight: 600,
+};
+
+const statValueStyle: React.CSSProperties = {
+  color: '#1f1f1f',
+  fontSize: 22,
+  fontWeight: 600,
+};
+
+function renderStatTitle(title: string) {
+  return <span style={statTitleStyle}>{title}</span>;
+}
+
 const ComparisonPanel: React.FC<ComparisonPanelProps> = ({
   current,
   baseline,
@@ -55,13 +71,26 @@ const ComparisonPanel: React.FC<ComparisonPanelProps> = ({
           >
             <Row gutter={16}>
               <Col span={8}>
-                <Statistic title="a 值" value={current.a.toFixed(4)} />
+                <Statistic
+                  title={renderStatTitle('a 值')}
+                  value={current.a.toFixed(4)}
+                  valueStyle={statValueStyle}
+                />
               </Col>
               <Col span={8}>
-                <Statistic title="b 值" value={current.b.toFixed(4)} />
+                <Statistic
+                  title={renderStatTitle('b 值')}
+                  value={current.b.toFixed(4)}
+                  valueStyle={statValueStyle}
+                />
               </Col>
               <Col span={8}>
-                <Statistic title="有效事件数" value={current.validCount} suffix="条" />
+                <Statistic
+                  title={renderStatTitle('有效事件数')}
+                  value={current.validCount}
+                  suffix="条"
+                  valueStyle={statValueStyle}
+                />
               </Col>
             </Row>
           </Card>
@@ -79,13 +108,26 @@ const ComparisonPanel: React.FC<ComparisonPanelProps> = ({
           >
             <Row gutter={16}>
               <Col span={8}>
-                <Statistic title="a 值" value={baseline.a.toFixed(4)} />
+                <Statistic
+                  title={renderStatTitle('a 值')}
+                  value={baseline.a.toFixed(4)}
+                  valueStyle={statValueStyle}
+                />
               </Col>
               <Col span={8}>
-                <Statistic title="b 值" value={baseline.b.toFixed(4)} />
+                <Statistic
+                  title={renderStatTitle('b 值')}
+                  value={baseline.b.toFixed(4)}
+                  valueStyle={statValueStyle}
+                />
               </Col>
               <Col span={8}>
-                <Statistic title="有效事件数" value={baseline.validCount} suffix="条" />
+                <Statistic
+                  title={renderStatTitle('有效事件数')}
+                  value={baseline.validCount}
+                  suffix="条"
+                  valueStyle={statValueStyle}
+                />
               </Col>
             </Row>
           </Card>
