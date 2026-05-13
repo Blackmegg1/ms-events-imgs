@@ -300,8 +300,7 @@ const LayerManage: React.FC<PropsWithChildren<LayerManageProps>> = (props) => {
             return (
               <div
                 key={`${layer.id}-${idx}`}
-                title={`${layer.layer_name}: ${layer.layer_distance}m ~ ${layer.layer_distance - layer.layer_depth
-                  }m`}
+                title={`${layer.layer_name}: ${layer.layer_distance}m ~ ${(layer.layer_distance - layer.layer_depth).toFixed(2)}m`}
                 style={{
                   position: 'absolute',
                   left: layer.layer_type === 1 ? '45px' : '25px',
