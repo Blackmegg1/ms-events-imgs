@@ -1,6 +1,6 @@
 {
   "private": true,
-  "version": "2.4",
+  "version": "2.5",
   "author": "Blackmegg1 <1141066795@qq.com>",
   "scripts": {
     "dev": "max dev",
