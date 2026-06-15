@@ -3,6 +3,8 @@ import { request } from '@umijs/max';
 export async function getImgList(params: {
   current?: number;
   pageSize?: number;
+  project_id?: number | null;
+  include_hidden?: number;
 }) {
   return request('/api/img/list', {
     method: 'get',
@@ -32,3 +34,14 @@ export async function updateImg(formdata: any) {
       data: formdata,
     });
   }
+
+export async function toggleImgHidden(
+  project_id: number,
+  name: string,
+  is_hidden: number,
+) {
+  return request('/api/img/toggleHidden', {
+    method: 'PUT',
+    data: { project_id, name, is_hidden },
+  });
+}

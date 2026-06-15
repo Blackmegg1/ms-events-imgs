@@ -1,13 +1,14 @@
 import imgmagServices from '@/services/imgmag';
 import projectServices from '@/services/project';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
-import { Button, Modal, Popconfirm, Space } from 'antd';
+import { Button, Modal, Popconfirm, Space, Switch, message } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import CreateForm from './components/CreateForm';
 import UpdateForm from './components/UpdataForm';
 
 const { getProjectDist, getActiveProject } = projectServices.ProjectController;
-const { getImgList, deleteImg } = imgmagServices.ImgmagController;
+const { getImgList, deleteImg, toggleImgHidden } =
+  imgmagServices.ImgmagController;
 
 const handlePreviewImage = (base64Img: string) => {
   // 显示 Modal
@@ -140,6 +141,27 @@ const ImgMag: React.FC = () => {
       hideInSearch: true,
     },
     {
+      title: '显示状态',
+      dataIndex: 'is_hidden',
+      hideInSearch: true,
+      render: (_, record) => (
+        <Switch
+          checkedChildren="显示"
+          unCheckedChildren="隐藏"
+          checked={!record.is_hidden}
+          onChange={async (checked) => {
+            await toggleImgHidden(
+              record.project_id,
+              record.name,
+              checked ? 0 : 1,
+            );
+            message.success(checked ? '底图已显示' : '底图已隐藏');
+            tableRef.current.reload();
+          }}
+        />
+      ),
+    },
+    {
       title: '操作',
       hideInSearch: true,
       render: (_, record) => (
@@ -234,6 +256,8 @@ const ImgMag: React.FC = () => {
         request={async (params) => {
           const { list, success, total } = await getImgList({
             ...params,
+            // 管理页需要看到隐藏的底图
+            include_hidden: 1,
             // @ts-ignore
           });
           return {
