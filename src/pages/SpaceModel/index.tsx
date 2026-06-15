@@ -1,13 +1,14 @@
-import { deleteModel, getModelList } from '@/services/model/ModelController';
+import { deleteModel, exportModel, getModelList } from '@/services/model/ModelController';
 import { getProjectDist } from '@/services/project/ProjectController';
 import { ActionType, PageContainer, ProTable } from '@ant-design/pro-components';
-import { Button, Popconfirm, Space } from 'antd';
+import { Button, Popconfirm, Space, message } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import CompassModal from './component/CompassModal';
 import CreateForm from './component/CreateForm';
 import CsvUploadModal from './component/CsvUploadModal';
 import LayerManage from './component/LayerManage';
 import PointManage from './component/PointManage';
+import RoadwayManage from './component/RoadwayManage';
 import UpdateForm from './component/UpdateForm';
 
 const SpaceModel: React.FC = () => {
@@ -18,8 +19,30 @@ const SpaceModel: React.FC = () => {
   const [updateModalVisible, handleUpdateVisible] = useState(false);
   const [pointDrawerVisible, handlePointDrawerVisible] = useState(false);
   const [layerDrawerVisible, handleLayerDrawerVisible] = useState(false);
+  const [roadwayDrawerVisible, handleRoadwayDrawerVisible] = useState(false);
   const [compassModalVisible, handleCompassModalVisible] = useState(false);
   const [csvModalVisible, handleCsvModalVisible] = useState(false);
+
+  // 一键导出模型为 JSON 文件
+  const handleExportModel = async (record: any) => {
+    try {
+      message.loading({ content: '正在导出...', key: 'export' });
+      const res: any = await exportModel(record.model_id);
+      const blob = res?.data instanceof Blob ? res.data : new Blob([JSON.stringify(res?.data ?? res)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${record.model_name || 'model_' + record.model_id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      message.success({ content: '导出成功', key: 'export' });
+    } catch (err) {
+      console.error('导出模型失败:', err);
+      message.error({ content: '导出模型失败', key: 'export' });
+    }
+  };
 
   const tableRef = useRef<ActionType>();
   const formRef = useRef();
@@ -108,10 +131,22 @@ const SpaceModel: React.FC = () => {
               type="link"
               onClick={() => {
                 setCurrentData(record);
+                handleRoadwayDrawerVisible(true);
+              }}
+            >
+              巷道管理
+            </Button>
+            <Button
+              type="link"
+              onClick={() => {
+                setCurrentData(record);
                 handleCompassModalVisible(true);
               }}
             >
               指北针设置
+            </Button>
+            <Button type="link" onClick={() => handleExportModel(record)}>
+              导出模型
             </Button>
             <Button
               type="link"
@@ -203,6 +238,14 @@ const SpaceModel: React.FC = () => {
         drawerVisible={layerDrawerVisible}
         onCancel={() => {
           handleLayerDrawerVisible(false);
+          tableRef.current?.reload();
+        }}
+        currentRecord={currentData}
+      />
+      <RoadwayManage
+        drawerVisible={roadwayDrawerVisible}
+        onCancel={() => {
+          handleRoadwayDrawerVisible(false);
           tableRef.current?.reload();
         }}
         currentRecord={currentData}

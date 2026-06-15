@@ -7,7 +7,8 @@ import {
     createBoxAxes,
     createEventSpheres,
     createCompass,
-    createLayerNames
+    createLayerNames,
+    createRoadways
 } from '@/utils/threeUtils';
 
 // 类型定义
@@ -35,6 +36,12 @@ interface LayerData {
     layer_type?: number; // 0: 地质层位, 1: 虚拟分析分区
 }
 
+interface RoadwayData {
+    name: string;
+    position: string; // 'max_y' | 'min_y'
+    color?: string;
+}
+
 interface SceneProps {
     points: Point[];
     events?: EventData[];
@@ -42,6 +49,7 @@ interface SceneProps {
     compass?: { start: number[]; end: number[] };
     csvData?: any[]; // 兼容旧接口
     showAnalysis?: boolean;
+    roadways?: RoadwayData[];
 }
 
 const Scene: React.FC<SceneProps> = ({
@@ -50,7 +58,8 @@ const Scene: React.FC<SceneProps> = ({
     layers = [],
     compass,
     csvData,
-    showAnalysis = false
+    showAnalysis = false,
+    roadways = []
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -325,7 +334,7 @@ const Scene: React.FC<SceneProps> = ({
         if (!scene || !visualBounds || !bounds || !renderer || !compassScene) return;
 
         // 清理旧模型
-        ["LayerGroup", "AxesGroup", "EventsGroup", "CompassGroup", "LayerLabelsGroup"].forEach(name => {
+        ["LayerGroup", "AxesGroup", "EventsGroup", "CompassGroup", "LayerLabelsGroup", "RoadwayGroup"].forEach(name => {
             [scene, compassScene].forEach(s => {
                 const oldGroup = s.getObjectByName(name);
                 if (oldGroup) {
@@ -371,6 +380,11 @@ const Scene: React.FC<SceneProps> = ({
             createEventSpheres(events, scene, center);
         }
 
+        // --- C2. 绘制巷道 ---
+        if (roadways && roadways.length > 0) {
+            createRoadways(roadways, bounds, center, scene);
+        }
+
         // --- D. 绘制独立场景中的 3D 指北针 ---
         if (compass) {
             // 在独立场景中，我们直接使用固定的大小 (scale: 60)
@@ -392,7 +406,7 @@ const Scene: React.FC<SceneProps> = ({
             controlsRef.current.target.set(0, 0, 0);
             controlsRef.current.update();
         }
-    }, [dataPoints, bounds, visualBounds, center, events, activeLayers, compass, showAnalysis, hiddenLayerNames]);
+    }, [dataPoints, bounds, visualBounds, center, events, activeLayers, compass, showAnalysis, hiddenLayerNames, roadways]);
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>

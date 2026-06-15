@@ -23,11 +23,21 @@ export function editModel(
   data: {
     model_name: string;
     project_id: number;
+    x_offset?: number;
   },
 ) {
   return request(`/api/model/${model_id}`, {
     method: 'put',
     data,
+  });
+}
+
+// 一键导出模型为 JSON 文件(blob)，供展示系统导入
+export function exportModel(model_id: number) {
+  return request(`/api/model/export/${model_id}`, {
+    method: 'get',
+    responseType: 'blob',
+    getResponse: true,
   });
 }
 

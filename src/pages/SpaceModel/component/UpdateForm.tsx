@@ -1,5 +1,5 @@
 import { editModel } from '@/services/model/ModelController';
-import { Button, Form, Input, Modal, Select, message } from 'antd';
+import { Button, Form, Input, InputNumber, Modal, Select, message } from 'antd';
 import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 interface EditFormProps {
@@ -8,6 +8,7 @@ interface EditFormProps {
     model_id: number;
     project_id: string;
     model_name: string;
+    x_offset?: number;
   };
   onCancel: () => void;
   projectArr: any[];
@@ -53,6 +54,7 @@ const UpdateForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
     if (currentRecord) {
       form.setFieldValue('model_name', currentRecord?.model_name);
       form.setFieldValue('project_id', currentRecord?.project_id);
+      form.setFieldValue('x_offset', currentRecord?.x_offset ?? 0);
     }
   }, [currentRecord]);
 
@@ -83,6 +85,13 @@ const UpdateForm: React.FC<PropsWithChildren<EditFormProps>> = (props) => {
             style={{ width: 220 }}
             placeholder="请选择"
           />
+        </Form.Item>
+        <Form.Item
+          label="坐标偏移"
+          name="x_offset"
+          tooltip="回采位置 X 坐标的校正偏移(m)，随模型导出，供展示系统对齐回采线"
+        >
+          <InputNumber step={0.01} style={{ width: 220 }} placeholder="默认 0" />
         </Form.Item>
       </Form>
     </Modal>

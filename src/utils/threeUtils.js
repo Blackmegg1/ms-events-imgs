@@ -290,6 +290,50 @@ export function createLayerLabels(layers, minX, minY, centerZ, scene) {
 export { createLayerLabels as createLayerNames };
 
 /**
+ * 创建巷道标注与引线 (沿 Y 方向布置在模型两侧)
+ * @param {Array} roadways 巷道列表 [{ name, position: 'max_y'|'min_y', color }]
+ */
+export function createRoadways(roadways, bounds, center, scene) {
+    if (!roadways || roadways.length === 0) return;
+
+    const group = new THREE.Group();
+    group.name = "RoadwayGroup";
+
+    const localMinX = bounds.minX - center.x;
+    const localMaxX = bounds.maxX - center.x;
+    const localMinY = bounds.minY - center.y;
+    const localMaxY = bounds.maxY - center.y;
+    const midZ = ((bounds.minZ + bounds.maxZ) / 2) - center.z;
+    const centerX = (localMinX + localMaxX) / 2;
+    const padding = Math.max(localMaxX - localMinX, localMaxY - localMinY) * 0.08 || 80;
+
+    roadways.forEach(road => {
+        if (!road.name || !road.position) return;
+        const color = road.color || "#e74c3c";
+        // min_y: 放在 Y 最小侧; 其余 (max_y) 放在 Y 最大侧
+        const edgeY = road.position === 'min_y' ? localMinY : localMaxY;
+        const labelY = road.position === 'min_y' ? localMinY - padding : localMaxY + padding;
+
+        // 标签
+        const sprite = makeTextSprite(road.name, 28, color, true);
+        sprite.position.set(centerX, labelY, midZ);
+        group.add(sprite);
+
+        // 引线 (虚线) 从标签指向模型边缘
+        const lineMat = new THREE.LineDashedMaterial({ color, dashSize: 8, gapSize: 4, opacity: 0.7, transparent: true });
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(centerX, labelY, midZ),
+            new THREE.Vector3(centerX, edgeY, midZ)
+        ]);
+        const line = new THREE.Line(lineGeo, lineMat);
+        line.computeLineDistances();
+        group.add(line);
+    });
+
+    scene.add(group);
+}
+
+/**
  * 创建 3D 指北针 (具有厚度和立体感)
  */
 export function createCompass(start, end, scene, center, targetLength) {

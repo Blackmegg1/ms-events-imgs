@@ -3,6 +3,7 @@ import { getLayerList } from '@/services/layer/LayerController';
 import { getCompass, getModelList } from '@/services/model/ModelController';
 import { getPointList } from '@/services/point/PointController';
 import { getProjectDist } from '@/services/project/ProjectController';
+import { getRoadwayList } from '@/services/roadway/RoadwayController';
 import { computerEvent } from '@/utils/pointSurfaceRegion';
 import { PageContainer } from '@ant-design/pro-components';
 import {
@@ -58,6 +59,7 @@ const ModelShow = () => {
   const [events, setEvents] = useState<Events[]>([]);
   const [layers, setLayers] = useState<Layers[]>([]);
   const [compass, setCompass] = useState<any>(null);
+  const [roadways, setRoadways] = useState<any[]>([]);
   const [fullModelList, setFullModelList] = useState<any[]>([]);
   const [csvData, setCsvData] = useState<any[]>([]);
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -176,6 +178,7 @@ const ModelShow = () => {
                       setEvents([]);
                       setPoints([]);
                       setCsvData([]);
+                      setRoadways([]);
                     }}
                   >
                     重置
@@ -316,6 +319,17 @@ const ModelShow = () => {
                           end: compassData[0].compass_end.split(','),
                         } as any);
                       }
+
+                      // 获取该模型的巷道并展示
+                      try {
+                        const { list: roadwayList } = await getRoadwayList({
+                          model_id: params.model_id,
+                        });
+                        setRoadways(roadwayList || []);
+                      } catch (e) {
+                        console.error('获取巷道失败', e);
+                        setRoadways([]);
+                      }
                     }}
                   >
                     成图
@@ -336,6 +350,7 @@ const ModelShow = () => {
               compass={compass}
               csvData={csvData}
               showAnalysis={showAnalysis}
+              roadways={roadways}
             />
           </div>
         </Card>
