@@ -100,7 +100,8 @@ const RoadwayPointManage: React.FC<PropsWithChildren<RoadwayPointManageProps>> =
 
   const handleImport = () => {
     const values = importForm.getFieldsValue();
-    const file = values?.excel?.file?.originFileObj;
+    const uploadFileInfo = values?.excel?.file || values?.excel?.fileList?.[0];
+    const file = uploadFileInfo?.originFileObj || uploadFileInfo;
     if (!file) {
       message.warning('请先选择 CSV 文件');
       return;
@@ -266,8 +267,8 @@ const RoadwayPointManage: React.FC<PropsWithChildren<RoadwayPointManageProps>> =
           </Button>
         </div>
         <Form form={importForm} layout="horizontal">
-          <Form.Item name="excel" label="CSV文件" required>
-            <Upload beforeUpload={() => false} maxCount={1}>
+          <Form.Item name="excel" label="CSV文件" required getValueFromEvent={(event) => event}>
+            <Upload accept=".csv" beforeUpload={() => false} maxCount={1}>
               <Button>点击上传</Button>
             </Upload>
           </Form.Item>
