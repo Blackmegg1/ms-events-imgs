@@ -36,10 +36,22 @@ interface LayerData {
     layer_type?: number; // 0: 地质层位, 1: 虚拟分析分区
 }
 
+interface RoadwayPoint {
+    x: number;
+    y: number;
+    z: number;
+    seq?: number;
+    point_name?: string;
+}
+
 interface RoadwayData {
     name: string;
-    position: string; // 'max_y' | 'min_y'
     color?: string;
+    section_type?: string; // 'arch' | 'circle'
+    sec_width?: number;
+    sec_wall_height?: number;
+    sec_diameter?: number;
+    points?: RoadwayPoint[];
 }
 
 interface SceneProps {

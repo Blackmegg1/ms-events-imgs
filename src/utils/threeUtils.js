@@ -290,8 +290,118 @@ export function createLayerLabels(layers, minX, minY, centerZ, scene) {
 export { createLayerLabels as createLayerNames };
 
 /**
- * 创建巷道标注与引线 (沿 Y 方向布置在模型两侧)
- * @param {Array} roadways 巷道列表 [{ name, position: 'max_y'|'min_y', color }]
+ * 构建巷道断面 2D 轮廓 (相对断面中心居中)
+ * 返回 [{u, v}] 列表 (u: 水平/巷宽方向, v: 竖直方向), 单位与世界坐标一致
+ */
+function buildSectionOutline(road) {
+    const pts = [];
+    if (road.section_type === 'circle') {
+        const r = Math.max((road.sec_diameter || 4) / 2, 0.1);
+        const seg = 24;
+        for (let i = 0; i < seg; i++) {
+            const a = (i / seg) * Math.PI * 2;
+            pts.push({ u: Math.cos(a) * r, v: Math.sin(a) * r });
+        }
+    } else {
+        // 拱形: 巷宽 W 的直墙 + 半圆拱顶 (半径 W/2)
+        const W = Math.max(road.sec_width || 4, 0.2);
+        const H = Math.max(road.sec_wall_height || 3, 0.1);
+        const r = W / 2;
+        const totalH = H + r;            // 总高: 直墙 + 拱顶
+        const cv = totalH / 2;           // 竖直方向居中偏移 (轮廓底边为 v=0)
+        // 底边 -> 左墙 -> 半圆拱顶 -> 右墙 -> 闭合
+        pts.push({ u: -W / 2, v: 0 });
+        pts.push({ u: -W / 2, v: H });
+        const archSeg = 16;
+        for (let i = 1; i < archSeg; i++) {
+            const a = Math.PI - (i / archSeg) * Math.PI; // 180° -> 0°
+            pts.push({ u: Math.cos(a) * r, v: H + Math.sin(a) * r });
+        }
+        pts.push({ u: W / 2, v: H });
+        pts.push({ u: W / 2, v: 0 });
+        // 竖直居中, 使断面中心落在测点折线上
+        for (const p of pts) p.v -= cv;
+    }
+    return pts;
+}
+
+/**
+ * 沿 3D 折线放样出管状巷道几何体 (使用固定世界上向量, 保证拱顶朝上不扭转)
+ * @param {THREE.Vector3[]} path 折线顶点 (局部坐标)
+ * @param {Array} outline 断面轮廓 [{u, v}]
+ */
+function buildRoadwayGeometry(path, outline) {
+    const M = outline.length;
+    const N = path.length;
+    const worldUp = new THREE.Vector3(0, 0, 1);
+    const positions = [];
+    const frames = [];
+
+    // 1. 计算每个折线顶点的局部坐标系 (tangent / side / up)
+    for (let i = 0; i < N; i++) {
+        const prev = path[Math.max(i - 1, 0)];
+        const next = path[Math.min(i + 1, N - 1)];
+        const tangent = new THREE.Vector3().subVectors(next, prev);
+        if (tangent.lengthSq() < 1e-9) tangent.set(1, 0, 0);
+        tangent.normalize();
+
+        let up = worldUp.clone();
+        // 切线接近竖直时换一个参考上向量, 避免退化
+        if (Math.abs(tangent.dot(up)) > 0.99) up = new THREE.Vector3(0, 1, 0);
+        const side = new THREE.Vector3().crossVectors(tangent, up).normalize();
+        const realUp = new THREE.Vector3().crossVectors(side, tangent).normalize();
+        frames.push({ side, up: realUp });
+    }
+
+    // 2. 生成每个断面环的顶点
+    for (let i = 0; i < N; i++) {
+        const { side, up } = frames[i];
+        for (let j = 0; j < M; j++) {
+            const o = outline[j];
+            positions.push(
+                path[i].x + side.x * o.u + up.x * o.v,
+                path[i].y + side.y * o.u + up.y * o.v,
+                path[i].z + side.z * o.u + up.z * o.v,
+            );
+        }
+    }
+
+    const indices = [];
+    // 3. 连接相邻断面环 (侧壁)
+    for (let i = 0; i < N - 1; i++) {
+        for (let j = 0; j < M; j++) {
+            const jn = (j + 1) % M;
+            const a = i * M + j;
+            const b = i * M + jn;
+            const c = (i + 1) * M + j;
+            const d = (i + 1) * M + jn;
+            indices.push(a, c, b, b, c, d);
+        }
+    }
+
+    // 4. 端面封盖 (以断面中心为扇心)
+    const addCap = (ringStart, p, reverse) => {
+        const ci = positions.length / 3;
+        positions.push(p.x, p.y, p.z);
+        for (let j = 0; j < M; j++) {
+            const jn = (j + 1) % M;
+            if (reverse) indices.push(ci, ringStart + jn, ringStart + j);
+            else indices.push(ci, ringStart + j, ringStart + jn);
+        }
+    };
+    addCap(0, path[0], true);
+    addCap((N - 1) * M, path[N - 1], false);
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+}
+
+/**
+ * 创建巷道 (沿测点折线放样出断面为拱形/圆形的实体管状巷道)
+ * @param {Array} roadways 巷道列表 [{ name, color, section_type, sec_width, sec_wall_height, sec_diameter, points: [{x,y,z,seq}] }]
  */
 export function createRoadways(roadways, bounds, center, scene) {
     if (!roadways || roadways.length === 0) return;
@@ -299,35 +409,80 @@ export function createRoadways(roadways, bounds, center, scene) {
     const group = new THREE.Group();
     group.name = "RoadwayGroup";
 
-    const localMinX = bounds.minX - center.x;
-    const localMaxX = bounds.maxX - center.x;
-    const localMinY = bounds.minY - center.y;
-    const localMaxY = bounds.maxY - center.y;
-    const midZ = ((bounds.minZ + bounds.maxZ) / 2) - center.z;
-    const centerX = (localMinX + localMaxX) / 2;
-    const padding = Math.max(localMaxX - localMinX, localMaxY - localMinY) * 0.08 || 80;
-
     roadways.forEach(road => {
-        if (!road.name || !road.position) return;
+        if (!road.name) return;
         const color = road.color || "#e74c3c";
-        // min_y: 放在 Y 最小侧; 其余 (max_y) 放在 Y 最大侧
-        const edgeY = road.position === 'min_y' ? localMinY : localMaxY;
-        const labelY = road.position === 'min_y' ? localMinY - padding : localMaxY + padding;
 
-        // 标签
-        const sprite = makeTextSprite(road.name, 28, color, true);
-        sprite.position.set(centerX, labelY, midZ);
-        group.add(sprite);
+        // 坐标可能以字符串形式从接口返回(如 DECIMAL 列), 统一转数值后再校验
+        const rawPoints = (road.points || [])
+            .slice()
+            .map(p => ({ ...p, x: Number(p.x), y: Number(p.y), z: Number(p.z) }))
+            .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z))
+            .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
 
-        // 引线 (虚线) 从标签指向模型边缘
-        const lineMat = new THREE.LineDashedMaterial({ color, dashSize: 8, gapSize: 4, opacity: 0.7, transparent: true });
-        const lineGeo = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(centerX, labelY, midZ),
-            new THREE.Vector3(centerX, edgeY, midZ)
-        ]);
-        const line = new THREE.Line(lineGeo, lineMat);
-        line.computeLineDistances();
-        group.add(line);
+        // 测点折线转为局部坐标, 并剔除重复点
+        const path = [];
+        rawPoints.forEach(p => {
+            const v = new THREE.Vector3(p.x - center.x, p.y - center.y, p.z - center.z);
+            if (path.length === 0 || path[path.length - 1].distanceToSquared(v) > 1e-6) {
+                path.push(v);
+            }
+        });
+
+        // 测点不足以构成线段: 退化为标签
+        if (path.length < 2) {
+            const anchor = path[0] || new THREE.Vector3(
+                (bounds.minX + bounds.maxX) / 2 - center.x,
+                (bounds.minY + bounds.maxY) / 2 - center.y,
+                (bounds.minZ + bounds.maxZ) / 2 - center.z,
+            );
+            const sprite = makeTextSprite(`${road.name} (无测点)`, 24, color, true);
+            sprite.position.copy(anchor);
+            group.add(sprite);
+            return;
+        }
+
+        const outline = buildSectionOutline(road);
+        const geometry = buildRoadwayGeometry(path, outline);
+        const baseColor = new THREE.Color(color);
+        // 不透明 + 自发光: 即便嵌在深色煤层里也能自亮, 不被环境光左右
+        const material = new THREE.MeshPhongMaterial({
+            color: baseColor,
+            emissive: baseColor.clone().multiplyScalar(0.55),
+            side: THREE.DoubleSide,
+            shininess: 30,
+            // 轻微多边形偏移, 避免与煤层共面时的 z-fighting
+            polygonOffset: true,
+            polygonOffsetFactor: -1,
+            polygonOffsetUnits: -1,
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.name = `Roadway_${road.name}`;
+        mesh.renderOrder = 2;
+        group.add(mesh);
+
+        // 高亮轮廓线: 勾出巷道断面与走向的边界, 在煤层背景中更跳脱
+        const edgeColor = baseColor.clone().offsetHSL(0, 0.1, 0.25); // 比本体更亮
+        const edges = new THREE.LineSegments(
+            new THREE.EdgesGeometry(geometry, 25),
+            new THREE.LineBasicMaterial({
+                color: edgeColor,
+                transparent: true,
+                opacity: 0.95,
+                depthTest: true,
+            }),
+        );
+        edges.renderOrder = 3;
+        mesh.add(edges);
+
+        // 名称标签放在折线中点上方
+        const mid = path[Math.floor(path.length / 2)];
+        const label = makeTextSprite(road.name, 24, color, true);
+        const lift = (road.section_type === 'circle'
+            ? (road.sec_diameter || 4) / 2
+            : (road.sec_wall_height || 3) + (road.sec_width || 4) / 2) + 3;
+        label.position.set(mid.x, mid.y, mid.z + lift);
+        group.add(label);
     });
 
     scene.add(group);

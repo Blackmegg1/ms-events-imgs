@@ -3,7 +3,10 @@ import { getLayerList } from '@/services/layer/LayerController';
 import { getCompass, getModelList } from '@/services/model/ModelController';
 import { getPointList } from '@/services/point/PointController';
 import { getProjectDist } from '@/services/project/ProjectController';
-import { getRoadwayList } from '@/services/roadway/RoadwayController';
+import {
+  getRoadwayList,
+  getRoadwayPoints,
+} from '@/services/roadway/RoadwayController';
 import { computerEvent } from '@/utils/pointSurfaceRegion';
 import { PageContainer } from '@ant-design/pro-components';
 import {
@@ -320,12 +323,28 @@ const ModelShow = () => {
                         } as any);
                       }
 
-                      // 获取该模型的巷道并展示
+                      // 获取该模型的巷道及其测点并展示
                       try {
                         const { list: roadwayList } = await getRoadwayList({
                           model_id: params.model_id,
                         });
-                        setRoadways(roadwayList || []);
+                        const roadwaysWithPoints = await Promise.all(
+                          (roadwayList || []).map(async (rw: any) => {
+                            try {
+                              const { list: pts } = await getRoadwayPoints(
+                                rw.id,
+                              );
+                              return { ...rw, points: pts || [] };
+                            } catch (err) {
+                              console.error(
+                                `获取巷道[${rw.name}]测点失败`,
+                                err,
+                              );
+                              return { ...rw, points: [] };
+                            }
+                          }),
+                        );
+                        setRoadways(roadwaysWithPoints);
                       } catch (e) {
                         console.error('获取巷道失败', e);
                         setRoadways([]);
